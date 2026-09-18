@@ -1,6 +1,5 @@
 // ============================================================
 // /api/scanner — 메인 스캔 엔드포인트
-// 역할: 종목 유니버스 로드 → 각 종목 병렬 분석 → 결과 반환
 // ============================================================
 
 const { getMarketData }     = require('./providers/marketProvider');
@@ -12,27 +11,39 @@ const { checkHardGates, checkAnalystStrongBuy } = require('./engine/strongBuy');
 const { getUniverse }       = require('./universe');
 const { cacheGet, cacheSet } = require('./cache');
 
-// 캐시 TTL (초) — 무료 API 한도 고려
-const CACHE_TTL = 15 * 60; // 15분
+// 30분 캐시 (Twelve Data 800/day 여유 확보)
+const CACHE_TTL = 30 * 60;
 
 module.exports = async (req, res) => {
-  // CORS (개인용이지만 명시)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const force = req.method === 'POST' && req.body && req.body.force === true;
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  let force = false;
+  if (req.method === 'POST') {
+    try {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      force = body && body.force === true;
+    } catch (e) { /* ignore */ }
+  }
 
   try {
     const cacheKey = 'scanner:all';
     if (!force) {
       const cached = await cacheGet(cacheKey);
       if (cached) {
+        res.setHeader('X-Cache', 'HIT');
         return res.status(200).json(cached);
       }
     }
 
-    const universe = getUniverse(); // 활성 종목만
+    const universe = getUniverse();
     if (!universe.length) {
       return res.status(200).json({
         results: [],
@@ -41,8 +52,8 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 병렬 처리 (동시성 제한)
-    const results = await runWithConcurrency(universe, 5, analyzeOne);
+    // 동시성 3 (Twelve Data 무료 8 req/min 고려)
+    const results = await runWithConcurrency(universe, 3, analyzeOne);
 
     const payload = {
       results: results.filter(Boolean),
@@ -50,7 +61,7 @@ module.exports = async (req, res) => {
     };
 
     await cacheSet(cacheKey, payload, CACHE_TTL);
-
+    res.setHeader('X-Cache', 'MISS');
     return res.status(200).json(payload);
   } catch (err) {
     console.error('[scanner] fatal:', err);
@@ -62,13 +73,13 @@ module.exports = async (req, res) => {
 };
 
 // ------------------------------------------------------------
-// 개별 종목 분석 파이프라인
+// 개별 종목 분석
 // ------------------------------------------------------------
 async function analyzeOne(stock) {
   const base = {
     symbol: stock.ticker,
     name: stock.name,
-    flag: stock.country,     // 'US' | 'KR'
+    flag: stock.country,
     price: null,
     analyst: 'N/A',
     technical: 'N/A',
@@ -78,24 +89,26 @@ async function analyzeOne(stock) {
   };
 
   try {
-    // 1. 시장 데이터 (현재가 + OHLCV)
+    // 1) OHLCV 1회 호출
     const market = await safe(() => getMarketData(stock));
     if (market && market.price != null) {
       base.price = formatPrice(market.price, stock.country);
     }
 
-    // 2. 기술 지표 데이터
-    const tech = await safe(() => getTechnicalData(stock));
+    // 2) 내부 계산 (외부 API 호출 없음)
+    let tech = null;
+    if (market) {
+      tech = await safe(() => getTechnicalData(market));
+    }
+
     if (!tech) {
       base.technical = 'N/A';
     } else {
-      // 3. 점수 계산 (엔진)
-      const config = getConfigFromRequest(); // 클라이언트 설정을 받을 수도, 기본값 사용
+      const config = getConfigFromRequest();
       const { score, breakdown } = calcTechnicalScore(tech, config);
       base.technicalScore = score;
       base.breakdown = breakdown;
 
-      // 4. Hard Gate 검사
       const gates = checkHardGates(tech, config);
       const grade = gradeFromScore(score, config);
 
@@ -108,7 +121,7 @@ async function analyzeOne(stock) {
       }
     }
 
-    // 5. Analyst 데이터
+    // 3) Analyst (Finnhub)
     const analyst = await safe(() => getAnalystData(stock));
     if (analyst && analyst.recommendation) {
       base.analyst = checkAnalystStrongBuy(analyst)
@@ -119,16 +132,13 @@ async function analyzeOne(stock) {
       base.analyst = 'N/A';
     }
 
-    // 6. 뉴스 (Strong Buy 판정과 무관, 참고용)
+    // 4) 뉴스 (Alpha Vantage, 미국만)
     const news = await safe(() => getNews(stock));
-    if (Array.isArray(news)) {
-      base.news = news.slice(0, 5);
-    }
+    if (Array.isArray(news)) base.news = news.slice(0, 5);
 
     return base;
   } catch (err) {
     console.warn(`[scanner] ${stock.ticker} failed:`, err.message);
-    // 종목 하나 실패해도 다른 종목은 정상 반환
     return base;
   }
 }
@@ -166,7 +176,6 @@ function formatPrice(price, country) {
 
 function formatNow() {
   const d = new Date();
-  // 한국 시간 기준
   const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
   const pad = n => String(n).padStart(2, '0');
   return `${kst.getUTCFullYear()}.${pad(kst.getUTCMonth() + 1)}.${pad(kst.getUTCDate())} ` +
@@ -174,7 +183,5 @@ function formatNow() {
 }
 
 function getConfigFromRequest() {
-  // 현재 버전에서는 서버측 기본값 사용.
-  // 클라이언트 설정을 반영하고 싶다면 요청 body로 전달.
   return require('./engine/defaultConfig');
 }
