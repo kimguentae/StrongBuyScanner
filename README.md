@@ -1,0 +1,2 @@
+# StrongBuyScanner
+Stock scanner
