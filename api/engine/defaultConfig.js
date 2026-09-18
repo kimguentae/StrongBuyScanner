@@ -6,12 +6,23 @@
 module.exports = {
   weights: { ma: 30, macd: 20, rsi: 15, adx: 15, bb: 20 },
   strongBuyThreshold: 80,
+
+  // Analyst 관련 (신규)
+  analystStrongBuyThreshold: 4.5,   // 가중 평균 임계값 (1~5)
+  analystMinGrade: 'STRONG_BUY',    // 'STRONG_BUY' | 'BUY' | 'HOLD'
+
   hardGates: {
-    ma50: true, ma200: true, macd: true, adx: true, di: true,
+    ma50: true,
+    ma200: true,
+    macd: true,
+    adx: true,
+    di: true,
     adxMin: 20
   },
+
   maPoints: { ma20: 10, ma50: 10, ma200: 10 },
   macdPoints: { signal: 10, zero: 5, hist: 5 },
+
   rsiBands: [
     { min: 75, max: Infinity, score: 0 },
     { min: 70, max: 75, score: 8 },

@@ -3,11 +3,13 @@
 // ============================================================
 
 // ------------------------------------------------------------
-// 기본 설정값 (DEFAULT_CONFIG)
+// 기본 설정값
 // ------------------------------------------------------------
 const DEFAULT_CONFIG = {
   weights: { ma: 30, macd: 20, rsi: 15, adx: 15, bb: 20 },
   strongBuyThreshold: 80,
+  analystStrongBuyThreshold: 4.5,
+  analystMinGrade: 'STRONG_BUY',
   hardGates: {
     ma50: true,
     ma200: true,
@@ -44,8 +46,38 @@ const DEFAULT_CONFIG = {
   ]
 };
 
+// Analyst 가중 평균 → 등급
+const ANALYST_GRADE_RANK = {
+  STRONG_BUY: 3,
+  BUY: 2,
+  HOLD: 1,
+  SELL: 0,
+  STRONG_SELL: 0,
+  'N/A': -1
+};
+
+function analystWeightedAverage(detail) {
+  if (!detail) return 0;
+  const sb = detail.strongBuy || 0;
+  const b  = detail.buy || 0;
+  const h  = detail.hold || 0;
+  const s  = detail.sell || 0;
+  const ss = detail.strongSell || 0;
+  const total = sb + b + h + s + ss;
+  if (total === 0) return 0;
+  return (sb * 5 + b * 4 + h * 3 + s * 2 + ss * 1) / total;
+}
+
+function analystGradeFromWeighted(w) {
+  if (w >= 4.5) return 'STRONG_BUY';
+  if (w >= 3.5) return 'BUY';
+  if (w >= 2.5) return 'HOLD';
+  if (w >= 1.5) return 'SELL';
+  return 'STRONG_SELL';
+}
+
 // ============================================================
-// App — 앱 상태 및 화면 제어
+// App
 // ============================================================
 const App = {
   filter: 'all',
@@ -87,10 +119,7 @@ const App = {
       b.classList.toggle('active', b.dataset.screen === screen);
     });
 
-    if (screen === 'main') {
-      this.currentDetail = null;
-    }
-
+    if (screen === 'main') this.currentDetail = null;
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
@@ -106,9 +135,7 @@ const App = {
     this.loading = true;
 
     const list = document.getElementById('strongBuyList');
-    if (list) {
-      list.innerHTML = '<div class="loading-state">데이터를 불러오는 중...</div>';
-    }
+    if (list) list.innerHTML = '<div class="loading-state">데이터를 불러오는 중...</div>';
     document.getElementById('errorBanner').classList.add('hidden');
 
     try {
@@ -123,16 +150,14 @@ const App = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const json = await res.json();
-
       if (json.error) throw new Error(json.error);
 
-      this.data = json.results || [];
+      // 클라이언트 측 Analyst 재판정 (설정 반영)
+      this.data = (json.results || []).map(d => this.recomputeAnalyst(d));
       this.lastUpdated = json.updatedAt || null;
 
       const el = document.getElementById('lastUpdated');
-      if (el) {
-        el.textContent = `Last updated ${this.lastUpdated || '—'}`;
-      }
+      if (el) el.textContent = `Last updated ${this.lastUpdated || '—'}`;
 
       this.renderMain();
     } catch (err) {
@@ -141,16 +166,21 @@ const App = {
       if (banner) {
         banner.classList.remove('hidden');
         const span = banner.querySelector('span');
-        if (span) {
-          span.textContent = `⚠️ 데이터 업데이트 실패 — ${err.message}`;
-        }
+        if (span) span.textContent = `⚠️ 데이터 업데이트 실패 — ${err.message}`;
       }
-      if (list) {
-        list.innerHTML = '<div class="empty-state">데이터를 불러오지 못했습니다.</div>';
-      }
+      if (list) list.innerHTML = '<div class="empty-state">데이터를 불러오지 못했습니다.</div>';
     } finally {
       this.loading = false;
     }
+  },
+
+  // 서버가 준 analystDetail을 클라이언트 설정 기준으로 재판정
+  recomputeAnalyst(d) {
+    if (!d.analystDetail) return d;
+    const threshold = this.config.analystStrongBuyThreshold ?? 4.5;
+    const w = analystWeightedAverage(d.analystDetail);
+    const grade = (w >= threshold) ? 'STRONG_BUY' : analystGradeFromWeighted(w);
+    return { ...d, analyst: grade, analystWeighted: w };
   },
 
   refresh() {
@@ -163,18 +193,21 @@ const App = {
   },
 
   // --------------------------------------------------------
-  // 메인 화면 렌더
+  // 메인 렌더
   // --------------------------------------------------------
   renderMain() {
     const list = document.getElementById('strongBuyList');
     if (!list) return;
 
     const filtered = this.getFiltered();
+    const minGrade = this.config.analystMinGrade || 'STRONG_BUY';
+    const minRank = ANALYST_GRADE_RANK[minGrade] ?? 3;
 
-    // Analyst === STRONG_BUY AND Technical === STRONG_BUY 인 종목만
-    const strongBuys = filtered.filter(d =>
-      d.analyst === 'STRONG_BUY' && d.technical === 'STRONG_BUY'
-    );
+    const strongBuys = filtered.filter(d => {
+      if (d.technical !== 'STRONG_BUY') return false;
+      const rank = ANALYST_GRADE_RANK[d.analyst] ?? -1;
+      return rank >= minRank;
+    });
 
     if (strongBuys.length === 0) {
       list.innerHTML = '<div class="empty-state">조건을 만족하는 Strong Buy 종목이 없습니다.</div>';
@@ -192,7 +225,7 @@ const App = {
   },
 
   // --------------------------------------------------------
-  // 상세 화면
+  // 상세
   // --------------------------------------------------------
   showDetail(symbol) {
     const d = this.data.find(x => x.symbol === symbol);
@@ -213,8 +246,27 @@ const App = {
       analystEl.textContent = 'N/A';
       analystEl.className = 'indicator-value';
     } else {
-      analystEl.textContent = d.analyst;
+      analystEl.textContent = this.gradeLabel(d.analyst);
       analystEl.className = 'indicator-value yellow';
+    }
+
+    // Analyst 세부 (개수)
+    const detailEl = document.getElementById('detailAnalystDetail');
+    if (d.analystDetail && detailEl) {
+      const a = d.analystDetail;
+      const w = d.analystWeighted != null ? d.analystWeighted.toFixed(2) : '—';
+      detailEl.innerHTML = `
+        <div class="analyst-counts">
+          <span>Strong Buy ${a.strongBuy ?? 0}</span>
+          <span>Buy ${a.buy ?? 0}</span>
+          <span>Hold ${a.hold ?? 0}</span>
+          <span>Sell ${a.sell ?? 0}</span>
+          <span>Strong Sell ${a.strongSell ?? 0}</span>
+        </div>
+        <div class="analyst-weighted">가중 평균 ${w}</div>
+      `;
+    } else if (detailEl) {
+      detailEl.innerHTML = '';
     }
 
     // Technical 등급
@@ -230,13 +282,10 @@ const App = {
       techEl.className = 'indicator-value yellow';
     }
 
-    // Technical 점수
     const scoreEl = document.getElementById('detailTechnicalScore');
-    if (d.technicalScore != null) {
-      scoreEl.textContent = `${Math.round(d.technicalScore)} / 100`;
-    } else {
-      scoreEl.textContent = 'N/A';
-    }
+    scoreEl.textContent = d.technicalScore != null
+      ? `${Math.round(d.technicalScore)} / 100`
+      : 'N/A';
 
     this.renderBreakdown(d.breakdown);
     this.renderNews(d.news);
@@ -267,7 +316,6 @@ const App = {
 
     const items = [];
 
-    // ---- MA ----
     if (b.ma) {
       const conds = (b.ma.conditions || []).map(c =>
         `<div class="condition-row">
@@ -286,7 +334,6 @@ const App = {
       `);
     }
 
-    // ---- MACD ----
     if (b.macd) {
       const conds = (b.macd.conditions || []).map(c =>
         `<div class="condition-row">
@@ -305,7 +352,6 @@ const App = {
       `);
     }
 
-    // ---- RSI ----
     if (b.rsi) {
       items.push(`
         <div class="breakdown-item">
@@ -322,7 +368,6 @@ const App = {
       `);
     }
 
-    // ---- ADX ----
     if (b.adx) {
       const conds = (b.adx.conditions || []).map(c =>
         `<div class="condition-row">
@@ -346,7 +391,6 @@ const App = {
       `);
     }
 
-    // ---- Bollinger ----
     if (b.bb) {
       items.push(`
         <div class="breakdown-item">
@@ -393,9 +437,6 @@ const App = {
     `).join('');
   },
 
-  // --------------------------------------------------------
-  // 유틸
-  // --------------------------------------------------------
   escapeHtml(str) {
     if (str == null) return '';
     const div = document.createElement('div');
@@ -415,7 +456,7 @@ const App = {
 };
 
 // ============================================================
-// Settings — LocalStorage 기반 설정 관리
+// Settings
 // ============================================================
 const Settings = {
   STORAGE_KEY: 'strongBuyScanner.config',
@@ -427,7 +468,7 @@ const Settings = {
       const parsed = JSON.parse(raw);
       return this.mergeDeep(JSON.parse(JSON.stringify(DEFAULT_CONFIG)), parsed);
     } catch (e) {
-      console.warn('Config load failed, using default', e);
+      console.warn('Config load failed', e);
       return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     }
   },
@@ -441,6 +482,9 @@ const Settings = {
     }
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cfg));
     App.config = cfg;
+    // 데이터에 재판정 반영
+    App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
+    App.renderMain();
     alert('설정이 저장되었습니다.');
     App.loadData(true);
   },
@@ -450,29 +494,24 @@ const Settings = {
     localStorage.removeItem(this.STORAGE_KEY);
     App.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     this.renderAll();
+    App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
+    App.renderMain();
     alert('기본값으로 복원되었습니다.');
     App.loadData(true);
   },
 
-  // ---- Validation ----
   validate(cfg) {
     const errors = [];
 
     const wSum = cfg.weights.ma + cfg.weights.macd + cfg.weights.rsi +
                  cfg.weights.adx + cfg.weights.bb;
-    if (wSum !== 100) {
-      errors.push(`지표별 배점 합계가 ${wSum}입니다. 100이 되어야 합니다.`);
-    }
+    if (wSum !== 100) errors.push(`지표별 배점 합계가 ${wSum}입니다. 100이어야 합니다.`);
 
     const maSum = cfg.maPoints.ma20 + cfg.maPoints.ma50 + cfg.maPoints.ma200;
-    if (maSum !== cfg.weights.ma) {
-      errors.push(`MA 세부 점수 합(${maSum})이 MA 배점(${cfg.weights.ma})과 다릅니다.`);
-    }
+    if (maSum !== cfg.weights.ma) errors.push(`MA 세부 점수 합(${maSum})이 MA 배점(${cfg.weights.ma})과 다릅니다.`);
 
     const macdSum = cfg.macdPoints.signal + cfg.macdPoints.zero + cfg.macdPoints.hist;
-    if (macdSum !== cfg.weights.macd) {
-      errors.push(`MACD 세부 점수 합(${macdSum})이 MACD 배점(${cfg.weights.macd})과 다릅니다.`);
-    }
+    if (macdSum !== cfg.weights.macd) errors.push(`MACD 세부 점수 합(${macdSum})이 MACD 배점(${cfg.weights.macd})과 다릅니다.`);
 
     const rsiErr = this.checkBandOverlap(cfg.rsiBands, 'RSI');
     if (rsiErr) errors.push(rsiErr);
@@ -484,7 +523,11 @@ const Settings = {
     if (bbErr) errors.push(bbErr);
 
     if (cfg.strongBuyThreshold < 0 || cfg.strongBuyThreshold > 100) {
-      errors.push('Strong Buy 기준은 0~100 사이여야 합니다.');
+      errors.push('Technical Strong Buy 기준은 0~100 사이여야 합니다.');
+    }
+
+    if (cfg.analystStrongBuyThreshold < 1 || cfg.analystStrongBuyThreshold > 5) {
+      errors.push('Analyst Strong Buy 기준은 1~5 사이여야 합니다.');
     }
 
     return errors;
@@ -494,24 +537,27 @@ const Settings = {
     const sorted = [...bands].sort((a, b) => a.min - b.min);
     for (let i = 1; i < sorted.length; i++) {
       if (sorted[i].min < sorted[i - 1].max) {
-        return `${label} 구간이 겹칩니다: [${sorted[i - 1].min}, ${sorted[i - 1].max}] ↔ [${sorted[i].min}, ${sorted[i].max}]`;
+        return `${label} 구간이 겹칩니다: [${sorted[i-1].min}, ${sorted[i-1].max}] ↔ [${sorted[i].min}, ${sorted[i].max}]`;
       }
     }
     return null;
   },
-
-  // ---- UI ↔ Config ----
   renderAll() {
     const c = this.load();
 
+    // 배점
     document.getElementById('cfg-weight-ma').value = c.weights.ma;
     document.getElementById('cfg-weight-macd').value = c.weights.macd;
     document.getElementById('cfg-weight-rsi').value = c.weights.rsi;
     document.getElementById('cfg-weight-adx').value = c.weights.adx;
     document.getElementById('cfg-weight-bb').value = c.weights.bb;
 
+    // Strong Buy 기준
     document.getElementById('cfg-strongbuy-threshold').value = c.strongBuyThreshold;
+    document.getElementById('cfg-analyst-strongbuy').value = c.analystStrongBuyThreshold ?? 4.5;
+    document.getElementById('cfg-analyst-min-grade').value = c.analystMinGrade || 'STRONG_BUY';
 
+    // Hard Gate
     document.getElementById('gate-ma50').checked = c.hardGates.ma50;
     document.getElementById('gate-ma200').checked = c.hardGates.ma200;
     document.getElementById('gate-macd').checked = c.hardGates.macd;
@@ -519,14 +565,17 @@ const Settings = {
     document.getElementById('gate-di').checked = c.hardGates.di;
     document.getElementById('gate-adx-value').value = c.hardGates.adxMin;
 
+    // MA 세부
     document.getElementById('cfg-ma20').value = c.maPoints.ma20;
     document.getElementById('cfg-ma50').value = c.maPoints.ma50;
     document.getElementById('cfg-ma200').value = c.maPoints.ma200;
 
+    // MACD 세부
     document.getElementById('cfg-macd-signal').value = c.macdPoints.signal;
     document.getElementById('cfg-macd-zero').value = c.macdPoints.zero;
     document.getElementById('cfg-macd-hist').value = c.macdPoints.hist;
 
+    // 밴드 UI
     this.renderBands('rsiBands', c.rsiBands, 'rsi');
     this.renderBands('adxBands', c.adxBands, 'adx');
     this.renderBands('bbBands', c.bbBands, 'bb');
@@ -580,7 +629,12 @@ const Settings = {
       const v = parseInt(document.getElementById(id)?.value);
       return isNaN(v) ? 0 : v;
     };
+    const floatNum = id => {
+      const v = parseFloat(document.getElementById(id)?.value);
+      return isNaN(v) ? 0 : v;
+    };
     const bool = id => document.getElementById(id)?.checked ?? false;
+    const select = id => document.getElementById(id)?.value ?? '';
 
     const readBands = (containerId, originalBands) => {
       const rows = document.querySelectorAll(`#${containerId} .band-row`);
@@ -604,6 +658,8 @@ const Settings = {
         bb: num('cfg-weight-bb')
       },
       strongBuyThreshold: num('cfg-strongbuy-threshold'),
+      analystStrongBuyThreshold: floatNum('cfg-analyst-strongbuy'),
+      analystMinGrade: select('cfg-analyst-min-grade'),
       hardGates: {
         ma50: bool('gate-ma50'),
         ma200: bool('gate-ma200'),
