@@ -1,0 +1,24 @@
+{
+  "name": "strong-buy-scanner",
+  "version": "1.0.0",
+  "description": "Personal stock scanner that surfaces Strong Buy candidates from a fixed watchlist of US and Korean stocks",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod",
+    "start": "vercel dev"
+  },
+  "keywords": [
+    "stock",
+    "scanner",
+    "strong-buy",
+    "technical-analysis"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {}
+}

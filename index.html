@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>STRONG BUY SCANNER</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 主屏幕 -->
+    <div id="screen-main" class="screen active">
+      <header class="main-header">
+        <h1 class="app-title">STRONG BUY SCANNER</h1>
+        <div class="last-updated" id="lastUpdated">Last updated —</div>
+        <button class="refresh-btn" id="refreshBtn" onclick="App.refresh()">새로고침 ↻</button>
+      </header>
+
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all" onclick="App.setFilter('all')">전체</button>
+        <button class="filter-btn" data-filter="US" onclick="App.setFilter('US')">🇺🇸 미국</button>
+        <button class="filter-btn" data-filter="KR" onclick="App.setFilter('KR')">🇰🇷 한국</button>
+      </div>
+
+      <div class="strong-buy-section">
+        <div class="section-label">🔥 STRONG BUY</div>
+        <div id="strongBuyList" class="stock-list">
+          <div class="loading-state">데이터를 불러오는 중...</div>
+        </div>
+      </div>
+
+      <div id="errorBanner" class="error-banner hidden">
+        <span>⚠️ 데이터 업데이트 실패</span>
+        <button onclick="App.refresh()">Retry</button>
+      </div>
+    </div>
+
+    <!-- 详细屏幕 -->
+    <div id="screen-detail" class="screen">
+      <div class="detail-header">
+        <button class="back-btn" onclick="App.goBack()">← 뒤로</button>
+        <div class="detail-title" id="detailName"></div>
+        <div class="detail-ticker" id="detailTicker"></div>
+      </div>
+
+      <div class="detail-price" id="detailPrice"></div>
+
+      <div class="detail-divider"></div>
+
+      <div class="why-section">
+        <div class="section-label">WHY STRONG BUY?</div>
+
+        <div class="analyst-row">
+          <span class="indicator-label">ANALYST</span>
+          <span id="detailAnalyst" class="indicator-value">—</span>
+        </div>
+
+        <div class="analyst-row">
+          <span class="indicator-label">TECHNICAL</span>
+          <span id="detailTechnicalGrade" class="indicator-value">—</span>
+        </div>
+        <div class="technical-score-big" id="detailTechnicalScore">— / 100</div>
+      </div>
+
+      <div class="detail-divider"></div>
+
+      <!-- 技术指标明细 -->
+      <div id="detailBreakdown"></div>
+
+      <div class="detail-divider"></div>
+
+      <!-- 新闻 -->
+      <div class="news-section">
+        <div class="section-label">📰 RECENT NEWS</div>
+        <div id="newsList" class="news-list">
+          <div class="news-empty">뉴스 데이터 없음</div>
+        </div>
+      </div>
+
+      <div class="detail-footer">
+        <button class="back-btn-full" onclick="App.goBack()">뒤로가기</button>
+      </div>
+    </div>
+
+    <!-- 设置屏幕 -->
+    <div id="screen-settings" class="screen">
+      <div class="settings-header">
+        <h2>설정</h2>
+      </div>
+
+      <div class="settings-content">
+        <!-- Technical Score 배점 -->
+        <div class="settings-group">
+          <div class="settings-group-title">Technical Score</div>
+          <div class="settings-group-subtitle">지표별 배점 (합계 100 필수)</div>
+          <div class="score-inputs">
+            <div class="score-row"><label>MA</label><input type="number" id="cfg-weight-ma" value="30" min="0" max="100"></div>
+            <div class="score-row"><label>MACD</label><input type="number" id="cfg-weight-macd" value="20" min="0" max="100"></div>
+            <div class="score-row"><label>RSI</label><input type="number" id="cfg-weight-rsi" value="15" min="0" max="100"></div>
+            <div class="score-row"><label>ADX</label><input type="number" id="cfg-weight-adx" value="15" min="0" max="100"></div>
+            <div class="score-row"><label>Bollinger</label><input type="number" id="cfg-weight-bb" value="20" min="0" max="100"></div>
+            <div class="score-row total-row"><label>총점</label><span id="cfg-weight-total">100</span></div>
+          </div>
+        </div>
+
+        <!-- Strong Buy 기준 -->
+        <div class="settings-group">
+          <div class="settings-group-title">Strong Buy 기준</div>
+          <div class="score-row">
+            <label>Technical Strong Buy</label>
+            <input type="number" id="cfg-strongbuy-threshold" value="80" min="0" max="100">
+            <span>점 이상</span>
+          </div>
+        </div>
+
+        <!-- Hard Gate -->
+        <div class="settings-group">
+          <div class="settings-group-title">Hard Gate</div>
+          <div class="gate-list">
+            <label class="gate-item"><input type="checkbox" id="gate-ma50" checked> 현재가 > MA50</label>
+            <label class="gate-item"><input type="checkbox" id="gate-ma200" checked> 현재가 > MA200</label>
+            <label class="gate-item"><input type="checkbox" id="gate-macd" checked> MACD > Signal</label>
+            <label class="gate-item"><input type="checkbox" id="gate-adx" checked> ADX >= <input type="number" id="gate-adx-value" value="20" min="0" max="100" style="width:50px"> </label>
+            <label class="gate-item"><input type="checkbox" id="gate-di" checked> +DI > -DI</label>
+          </div>
+        </div>
+
+        <!-- MA 세부 배점 -->
+        <div class="settings-group">
+          <div class="settings-group-title">MA 세부 점수</div>
+          <div class="score-row"><label>현재가 > MA20</label><input type="number" id="cfg-ma20" value="10" min="0"></div>
+          <div class="score-row"><label>현재가 > MA50</label><input type="number" id="cfg-ma50" value="10" min="0"></div>
+          <div class="score-row"><label>현재가 > MA200</label><input type="number" id="cfg-ma200" value="10" min="0"></div>
+        </div>
+
+        <!-- MACD 세부 점수 -->
+        <div class="settings-group">
+          <div class="settings-group-title">MACD 세부 점수</div>
+          <div class="score-row"><label>MACD > Signal</label><input type="number" id="cfg-macd-signal" value="10" min="0"></div>
+          <div class="score-row"><label>MACD > 0</label><input type="number" id="cfg-macd-zero" value="5" min="0"></div>
+          <div class="score-row"><label>Histogram > 0</label><input type="number" id="cfg-macd-hist" value="5" min="0"></div>
+        </div>
+
+        <!-- RSI 구간 -->
+        <div class="settings-group">
+          <div class="settings-group-title">RSI 구간 및 점수</div>
+          <div class="rsi-bands" id="rsiBands"></div>
+        </div>
+
+        <!-- ADX 구간 -->
+        <div class="settings-group">
+          <div class="settings-group-title">ADX 구간 및 점수</div>
+          <div class="adx-bands" id="adxBands"></div>
+        </div>
+
+        <!-- Bollinger 구간 -->
+        <div class="settings-group">
+          <div class="settings-group-title">Bollinger 구간 및 점수</div>
+          <div class="bb-bands" id="bbBands"></div>
+        </div>
+
+        <div class="settings-actions">
+          <button class="save-btn" onclick="Settings.save()">저장</button>
+          <button class="reset-btn" onclick="Settings.reset()">기본값으로 복원</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部导航 -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-screen="main" onclick="App.navigate('main')">스캐너</button>
+    <button class="nav-btn" data-screen="settings" onclick="App.navigate('settings')">설정</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
