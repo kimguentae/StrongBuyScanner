@@ -1,20 +1,22 @@
 // ============================================================
-// yahooProvider — 한국 주식 일봉 OHLCV (비공식 API)
-// 무료, API 키 불필요
+// yahooProvider — 미국 + 한국 주식 일봉 OHLCV
+// 무료, API 키 불필요, 2년치 데이터 제공
 // ============================================================
 
 const YAHOO_BASE = 'https://query1.finance.yahoo.com/v8/finance/chart';
 
 async function getYahooData(stock) {
-  if (stock.country !== 'KR') {
-    throw new Error('yahooProvider only supports KR stocks');
+  let symbol;
+
+  if (stock.country === 'US') {
+    symbol = stock.ticker;
+  } else if (stock.country === 'KR') {
+    const suffix = stock.exchange === 'KOSDAQ' ? 'KQ' : 'KS';
+    symbol = `${stock.ticker}.${suffix}`;
+  } else {
+    throw new Error(`Unsupported country: ${stock.country}`);
   }
 
-  // KOSPI: .KS, KOSDAQ: .KQ
-  const suffix = stock.exchange === 'KOSDAQ' ? 'KQ' : 'KS';
-  const symbol = `${stock.ticker}.${suffix}`;
-
-  // MA200 계산을 위해 2년치 요청
   const url = `${YAHOO_BASE}/${encodeURIComponent(symbol)}?interval=1d&range=2y`;
 
   const res = await fetch(url, {
@@ -48,7 +50,6 @@ async function getYahooData(stock) {
     const c = quote.close?.[i];
     const v = quote.volume?.[i];
 
-    // null 값 스킵 (휴장일, 결측치)
     if (o == null || h == null || l == null || c == null) continue;
 
     const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
@@ -72,7 +73,7 @@ async function getYahooData(stock) {
   return {
     symbol: stock.ticker,
     price: latest.close,
-    currency: result.meta?.currency || 'KRW',
+    currency: result.meta?.currency || (stock.country === 'KR' ? 'KRW' : 'USD'),
     candles,
     updatedAt: latest.date
   };
