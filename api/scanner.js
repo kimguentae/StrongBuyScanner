@@ -1,5 +1,6 @@
 // ============================================================
 // /api/scanner — 메인 스캔 엔드포인트
+// Rate limit 대응: 캐시 1시간, 동시성 2
 // ============================================================
 
 const { getMarketData }     = require('./providers/marketProvider');
@@ -11,16 +12,14 @@ const { checkHardGates, checkAnalystStrongBuy } = require('./engine/strongBuy');
 const { getUniverse }       = require('./universe');
 const { cacheGet, cacheSet } = require('./cache');
 
-// 30분 캐시 (Twelve Data 800/day 여유 확보)
-const CACHE_TTL = 30 * 60;
+const CACHE_TTL = 60 * 60;      // 1시간
+const CONCURRENCY = 2;          // 동시성 2 (rate limit 여유)
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
   if (req.method === 'OPTIONS') return res.status(200).end();
-
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -52,8 +51,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 동시성 3 (Twelve Data 무료 8 req/min 고려)
-    const results = await runWithConcurrency(universe, 3, analyzeOne);
+    const results = await runWithConcurrency(universe, CONCURRENCY, analyzeOne);
 
     const payload = {
       results: results.filter(Boolean),
@@ -72,9 +70,6 @@ module.exports = async (req, res) => {
   }
 };
 
-// ------------------------------------------------------------
-// 개별 종목 분석
-// ------------------------------------------------------------
 async function analyzeOne(stock) {
   const base = {
     symbol: stock.ticker,
@@ -89,21 +84,17 @@ async function analyzeOne(stock) {
   };
 
   try {
-    // 1) OHLCV 1회 호출
+    // 1) OHLCV
     const market = await safe(() => getMarketData(stock));
     if (market && market.price != null) {
       base.price = formatPrice(market.price, stock.country);
     }
 
-    // 2) 내부 계산 (외부 API 호출 없음)
+    // 2) 기술지표 (내부 계산)
     let tech = null;
-    if (market) {
-      tech = await safe(() => getTechnicalData(market));
-    }
+    if (market) tech = await safe(() => getTechnicalData(market));
 
-    if (!tech) {
-      base.technical = 'N/A';
-    } else {
+    if (tech) {
       const config = getConfigFromRequest();
       const { score, breakdown } = calcTechnicalScore(tech, config);
       base.technicalScore = score;
@@ -112,27 +103,21 @@ async function analyzeOne(stock) {
       const gates = checkHardGates(tech, config);
       const grade = gradeFromScore(score, config);
 
-      if (grade === 'STRONG_BUY' && gates.pass) {
-        base.technical = 'STRONG_BUY';
-      } else if (grade === 'N/A') {
-        base.technical = 'N/A';
-      } else {
-        base.technical = grade;
-      }
+      if (grade === 'STRONG_BUY' && gates.pass) base.technical = 'STRONG_BUY';
+      else if (grade === 'N/A') base.technical = 'N/A';
+      else base.technical = grade;
     }
 
-    // 3) Analyst (Finnhub)
+    // 3) Analyst
     const analyst = await safe(() => getAnalystData(stock));
     if (analyst && analyst.recommendation) {
       base.analyst = checkAnalystStrongBuy(analyst)
         ? 'STRONG_BUY'
         : analyst.recommendation;
       base.analystDetail = analyst;
-    } else {
-      base.analyst = 'N/A';
     }
 
-    // 4) 뉴스 (Alpha Vantage, 미국만)
+    // 4) 뉴스
     const news = await safe(() => getNews(stock));
     if (Array.isArray(news)) base.news = news.slice(0, 5);
 
@@ -143,9 +128,6 @@ async function analyzeOne(stock) {
   }
 }
 
-// ------------------------------------------------------------
-// 유틸
-// ------------------------------------------------------------
 async function safe(fn) {
   try { return await fn(); } catch (e) {
     console.warn('[safe]', e.message);
