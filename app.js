@@ -1,6 +1,6 @@
 // ============================================================
-// STRONG BUY SCANNER — Frontend (app.js) v6
-// 추가: 검색, 즐겨찾기, SB 기록, Don't Buy, 커스텀 모달, 설정 잠금
+// STRONG BUY SCANNER — Frontend (app.js) v7
+// 추가: Analyst 통합 게이지 (미국+한국), 임계값 제거
 // ============================================================
 
 const DEFAULT_CONFIG = {
@@ -29,29 +29,12 @@ const DEFAULT_CONFIG = {
   ]
 };
 
-const ANALYST_GRADE_RANK = { STRONG_BUY: 3, BUY: 2, HOLD: 1, SELL: 0, STRONG_SELL: 0, 'N/A': -1 };
-
-function analystWeightedAverage(detail) {
-  if (!detail) return 0;
-  const sb = detail.strongBuy || 0, b = detail.buy || 0, h = detail.hold || 0;
-  const s = detail.sell || 0, ss = detail.strongSell || 0;
-  const total = sb + b + h + s + ss;
-  if (total === 0) {
-    if (detail.score != null) return Number(detail.score);
-    return 0;
-  }
-  return (sb * 5 + b * 4 + h * 3 + s * 2 + ss * 1) / total;
-}
-function analystGradeFromWeighted(w) {
-  if (w >= 4.5) return 'STRONG_BUY';
-  if (w >= 3.5) return 'BUY';
-  if (w >= 2.5) return 'HOLD';
-  if (w >= 1.5) return 'SELL';
-  return 'STRONG_SELL';
-}
+const ANALYST_GRADE_RANK = {
+  STRONG_BUY: 3, BUY: 2, HOLD: 1, SELL: 0, STRONG_SELL: 0, 'N/A': -1
+};
 
 // ============================================================
-// Storage — 즐겨찾기 + SB 기록
+// Storage
 // ============================================================
 const Storage = {
   FAV_KEY: 'strongBuyScanner.favorites',
@@ -120,7 +103,6 @@ const Storage = {
     }
 
     if (consecutive === 0) return null;
-
     return { days: consecutive, startDate: since };
   },
 
@@ -134,12 +116,9 @@ const Storage = {
 // App
 // ============================================================
 const App = {
-  // ============================================================
-  // 설정 잠금 (비밀번호)
-  // ============================================================
-  SETTINGS_PASSWORD: '250303',          // ← 원하는 비밀번호로 변경
+  SETTINGS_PASSWORD: '1234',
   AUTH_KEY: 'strongBuyScanner.auth',
-  AUTH_TTL: 60 * 60 * 1000,           // 1시간 유지
+  AUTH_TTL: 60 * 60 * 1000,
 
   filter: 'all',
   search: '',
@@ -184,7 +163,6 @@ const App = {
   },
 
   async navigate(screen) {
-    // 설정 화면은 잠금 확인
     if (screen === 'settings') {
       const ok = await this.requireSettingsAuth();
       if (!ok) return;
@@ -254,13 +232,24 @@ const App = {
     }
   },
 
-    recomputeAnalyst(d) {
+  recomputeAnalyst(d) {
     // analyst 값을 대문자 형식으로 정규화 (강등 안 함)
     if (d.analyst) {
       d.analyst = String(d.analyst).toUpperCase().replace(/\s+/g, '_');
     }
+    // 가중평균 계산 (표시용)
     if (d.analystDetail) {
-      d.analystWeighted = analystWeightedAverage(d.analystDetail);
+      let weighted = 0;
+      const a = d.analystDetail;
+      if (a.strongBuy != null) {
+        const sb = a.strongBuy || 0, b = a.buy || 0, h = a.hold || 0;
+        const s = a.sell || 0, ss = a.strongSell || 0;
+        const total = sb + b + h + s + ss;
+        weighted = total > 0 ? (sb * 5 + b * 4 + h * 3 + s * 2 + ss * 1) / total : 0;
+      } else if (a.score != null) {
+        weighted = Number(a.score);
+      }
+      d.analystWeighted = weighted;
     }
     return d;
   },
@@ -336,7 +325,6 @@ const App = {
       sectionLabel.textContent = label;
     }
 
-    // Strong Buy 렌더
     if (strongBuys.length === 0) {
       let msg = '조건을 만족하는 Strong Buy 종목이 없습니다.';
       if (this.filter === 'fav' && Storage.getFavorites().length === 0) {
@@ -350,7 +338,6 @@ const App = {
       list.innerHTML = strongBuys.map(d => this.renderStockItem(d, favs)).join('');
     }
 
-    // Don't Buy 렌더
     if (!dontBuyList || !dontBuySection) return;
 
     if (dontBuys.length === 0) {
@@ -480,7 +467,6 @@ const App = {
 
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
-
       const hasCancel = !!cancelText;
 
       overlay.innerHTML = `
@@ -532,26 +518,15 @@ const App = {
   },
 
   alert(message, title = '알림') {
-    return this._showModal({
-      type: 'info',
-      title,
-      message,
-      confirmText: '확인'
-    });
+    return this._showModal({ type: 'info', title, message, confirmText: '확인' });
   },
 
   confirm(message, title = '확인', { type = 'warn', confirmText = '확인', cancelText = '취소' } = {}) {
-    return this._showModal({
-      type,
-      title,
-      message,
-      confirmText,
-      cancelText
-    });
+    return this._showModal({ type, title, message, confirmText, cancelText });
   },
 
   // ============================================================
-  // 설정 잠금 인증
+  // 설정 잠금
   // ============================================================
   isSettingsUnlocked() {
     try {
@@ -573,7 +548,6 @@ const App = {
 
   async requireSettingsAuth() {
     if (this.isSettingsUnlocked()) return true;
-
     const password = await this._showPasswordModal();
     if (password === null) return false;
 
@@ -634,6 +608,9 @@ const App = {
     });
   },
 
+  // ============================================================
+  // 상세 화면
+  // ============================================================
   showDetail(symbol) {
     const d = this.data.find(x => x.symbol === symbol);
     if (!d) return;
@@ -662,44 +639,13 @@ const App = {
     else if (!d.analyst || d.analyst === 'N/A') { analystEl.textContent = 'N/A'; analystEl.className = 'indicator-value'; }
     else { analystEl.textContent = this.gradeLabel(d.analyst); analystEl.className = 'indicator-value yellow'; }
 
+    // Analyst 상세 렌더 (통합 게이지)
     const detailEl = document.getElementById('detailAnalystDetail');
-if (d.analystDetail && detailEl) {
-  const a = d.analystDetail;
-
-  // Finnhub (개수 기반)
-  if (a.strongBuy != null) {
-    detailEl.innerHTML = `
-      <div class="analyst-counts">
-        <span>Strong Buy ${a.strongBuy ?? 0}</span>
-        <span>Buy ${a.buy ?? 0}</span>
-        <span>Hold ${a.hold ?? 0}</span>
-        <span>Sell ${a.sell ?? 0}</span>
-        <span>Strong Sell ${a.strongSell ?? 0}</span>
-      </div>`;
-
-  // 네이버 (score 기반) — 5칸 막대로 표시
-  } else if (a.score != null) {
-    const score = Math.max(1, Math.min(5, Number(a.score)));
-    const gradeLabels = ['', '적극매도', '매도', '중립', '매수', '적극매수'];
-    const gradeColors = ['', 'sell', 'sell', 'hold', 'buy', 'strong-buy'];
-    const label = gradeLabels[Math.round(score)];
-    const colorClass = gradeColors[Math.round(score)];
-
-    const bars = Array.from({ length: 5 }, (_, i) => {
-      const filled = i < score;
-      return `<div class="analyst-bar ${filled ? 'filled ' + colorClass : ''}"></div>`;
-    }).join('');
-
-    detailEl.innerHTML = `
-      <div class="analyst-bars-wrapper">
-        <div class="analyst-bars">${bars}</div>
-        <div class="analyst-label ${colorClass}">${label}</div>
-      </div>
-      ${a.targetPrice ? `<div class="analyst-target">목표주가 ${a.targetPrice.toLocaleString()}원</div>` : ''}`;
-  } else {
-    detailEl.innerHTML = '';
-  }
-} else if (detailEl) detailEl.innerHTML = '';
+    if (d.analystDetail && detailEl) {
+      detailEl.innerHTML = this.renderAnalystDetail(d);
+    } else if (detailEl) {
+      detailEl.innerHTML = '';
+    }
 
     const techEl = document.getElementById('detailTechnicalGrade');
     if (d.technical === 'STRONG_BUY') { techEl.textContent = '🟢 Strong Buy'; techEl.className = 'indicator-value green'; }
@@ -717,6 +663,59 @@ if (d.analystDetail && detailEl) {
 
     this.currentChartDays = 90;
     this.loadChart(90);
+  },
+
+  renderAnalystDetail(d) {
+    const a = d.analystDetail;
+    if (!a) return '';
+
+    let weighted = 0;
+    if (a.strongBuy != null) {
+      const sb = a.strongBuy || 0, b = a.buy || 0, h = a.hold || 0;
+      const s = a.sell || 0, ss = a.strongSell || 0;
+      const total = sb + b + h + s + ss;
+      weighted = total > 0 ? (sb * 5 + b * 4 + h * 3 + s * 2 + ss * 1) / total : 0;
+    } else if (a.score != null) {
+      weighted = Number(a.score);
+    }
+
+    if (weighted <= 0) return '';
+
+    const gradeInfo = this._analystGradeInfo(weighted);
+    const filledCount = Math.round((weighted / 5) * 20);
+    const bars = Array.from({ length: 20 }, (_, i) =>
+      `<div class="analyst-bar ${i < filledCount ? 'filled ' + gradeInfo.color : ''}"></div>`
+    ).join('');
+
+    const countDetail = a.strongBuy != null ? `
+      <div class="analyst-counts">
+        <span>Strong Buy ${a.strongBuy}</span>
+        <span>Buy ${a.buy}</span>
+        <span>Hold ${a.hold}</span>
+        <span>Sell ${a.sell}</span>
+        <span>Strong Sell ${a.strongSell}</span>
+      </div>` : '';
+
+    const targetPrice = a.targetPrice
+      ? `<div class="analyst-target">목표주가 ${a.targetPrice.toLocaleString()}${a.source === 'Naver Finance' ? '원' : ''}</div>`
+      : '';
+
+    return `
+      <div class="analyst-bars-wrapper">
+        <div class="analyst-bars">${bars}</div>
+        <div class="analyst-score-num ${gradeInfo.color}">${weighted.toFixed(2)}</div>
+      </div>
+      <div class="analyst-grade-label ${gradeInfo.color}">${gradeInfo.label}</div>
+      ${countDetail}
+      ${targetPrice}`;
+  },
+
+  _analystGradeInfo(w) {
+    if (w >= 4.5) return { label: '적극매수', color: 'strong-buy' };
+    if (w >= 3.5) return { label: '매수', color: 'buy' };
+    if (w >= 2.5) return { label: '중립', color: 'hold' };
+    if (w >= 1.5) return { label: '매도', color: 'sell' };
+    return { label: '적극매도', color: 'strong-sell' };
   },
 
   gradeLabel(grade) {
@@ -955,9 +954,7 @@ if (d.analystDetail && detailEl) {
       value: c.volume,
       color: c.close >= c.open ? '#00d68f33' : '#ff3d7133'
     })));
-    chart.priceScale('volume').applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 }
-    });
+    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
     this.chartSeries.volume = volumeSeries;
 
     chart.timeScale().fitContent();
@@ -967,10 +964,7 @@ if (d.analystDetail && detailEl) {
   applyChartToggles() {
     const maOn = document.getElementById('toggleMA')?.checked;
     const bbOn = document.getElementById('toggleBB')?.checked;
-
-    const setVisible = (series, visible) => {
-      if (series) series.applyOptions({ visible });
-    };
+    const setVisible = (s, v) => { if (s) s.applyOptions({ visible: v }); };
     setVisible(this.chartSeries.ma20, maOn);
     setVisible(this.chartSeries.ma50, maOn);
     setVisible(this.chartSeries.ma200, maOn);
@@ -1083,7 +1077,6 @@ const Settings = {
     sbT.value = c.strongBuyThreshold;
     document.getElementById('cfg-strongbuy-threshold-val').textContent = c.strongBuyThreshold;
 
-  
     document.getElementById('cfg-analyst-min-grade').value = c.analystMinGrade || 'BUY';
     document.getElementById('cfg-allow-analyst-na').checked = !!c.allowAnalystNA;
 
@@ -1165,7 +1158,6 @@ const Settings = {
 
   readFromUI() {
     const num = id => { const v = parseInt(document.getElementById(id)?.value); return isNaN(v) ? 0 : v; };
-    const floatNum = id => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? 0 : v; };
     const bool = id => document.getElementById(id)?.checked ?? false;
     const select = id => document.getElementById(id)?.value ?? '';
 
