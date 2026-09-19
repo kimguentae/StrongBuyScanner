@@ -28,12 +28,30 @@ module.exports = async (req, res) => {
   let clientConfig = null;
 
   if (req.method === 'POST') {
-    try {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      force = body && body.force === true;
-      clientConfig = body && body.config ? body.config : null;
-    } catch (e) { /* ignore */ }
+  try {
+    // Vercel에서 req.body가 자동 파싱되지 않을 수 있음 → 스트림 직접 읽기
+    let body = req.body;
+    
+    if (typeof body === 'string') {
+      body = JSON.parse(body);
+    } else if (!body) {
+      // 스트림에서 읽기
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const raw = Buffer.concat(chunks).toString('utf-8');
+      if (raw) body = JSON.parse(raw);
+    }
+    
+    if (body) {
+      force = body.force === true;
+      clientConfig = body.config || null;
+    }
+  } catch (e) {
+    console.warn('[scanner] body parse error:', e.message);
   }
+}
 
   try {
     const cacheKey = 'scanner:all';
