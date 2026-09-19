@@ -464,7 +464,7 @@ const App = {
       borderUpColor: '#00d68f', borderDownColor: '#ff3d71',
       wickUpColor: '#00d68f', wickDownColor: '#ff3d71'
     });
-    candleSeries.setData(data.candles);
+    candleSeries.setData(data.candles.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close })));
     this.chartSeries.candles = candleSeries;
 
     if (data.ma20 && data.ma20.length) {
