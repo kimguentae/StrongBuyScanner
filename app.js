@@ -1023,10 +1023,10 @@ const Settings = {
   App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
   App.renderMain();
   this.renderSummary();
-  App.alert('설정이 저장되었습니다.\n새로고침 중...', '✅ 저장 완료');
-  
-  // 자동 재스캔 (서버에서 새로 계산)
-  setTimeout(() => App.loadData(true), 500);
+
+  // ✅ 저장 후 자동 재스캔 (서버가 새 설정으로 재판정)
+  App.alert('설정이 저장되었습니다.\n잠시 후 자동 새로고침됩니다.', '✅ 저장 완료');
+  setTimeout(() => App.loadData(true), 800);
 },
 
   async reset() {
