@@ -164,5 +164,5 @@ function formatNow() {
 }
 
 function getConfigFromRequest() {
-  return require('./engine/defaultConfig');
+  return require('../lib/engine/defaultConfig');
 }
