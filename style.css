@@ -2313,3 +2313,32 @@ select:focus-visible {
   background: transparent;
   z-index: auto;
 }
+
+/* ===== 설정 잠금 입력창 ===== */
+.modal-input {
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 16px;
+  font-family: inherit;
+  text-align: center;
+  letter-spacing: 3px;
+  transition: all 0.15s;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface2);
+  box-shadow: 0 0 0 3px #6c5ce722;
+}
+
+.modal-input::placeholder {
+  color: var(--text-dim);
+  letter-spacing: 0;
+  opacity: 0.5;
+}

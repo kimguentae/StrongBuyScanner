@@ -1,6 +1,6 @@
 // ============================================================
-// STRONG BUY SCANNER — Frontend (app.js) v5
-// 추가: 검색, 즐겨찾기, SB 기록, Don't Buy, 커스텀 모달
+// STRONG BUY SCANNER — Frontend (app.js) v6
+// 추가: 검색, 즐겨찾기, SB 기록, Don't Buy, 커스텀 모달, 설정 잠금
 // ============================================================
 
 const DEFAULT_CONFIG = {
@@ -135,6 +135,13 @@ const Storage = {
 // App
 // ============================================================
 const App = {
+  // ============================================================
+  // 설정 잠금 (비밀번호)
+  // ============================================================
+  SETTINGS_PASSWORD: '250303',          // ← 원하는 비밀번호로 변경
+  AUTH_KEY: 'strongBuyScanner.auth',
+  AUTH_TTL: 60 * 60 * 1000,           // 1시간 유지
+
   filter: 'all',
   search: '',
   data: [],
@@ -177,7 +184,13 @@ const App = {
     this.renderMain();
   },
 
-  navigate(screen) {
+  async navigate(screen) {
+    // 설정 화면은 잠금 확인
+    if (screen === 'settings') {
+      const ok = await this.requireSettingsAuth();
+      if (!ok) return;
+    }
+
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(`screen-${screen}`);
     if (target) target.classList.add('active');
@@ -243,11 +256,12 @@ const App = {
   },
 
   recomputeAnalyst(d) {
-    if (!d.analystDetail) return d;
-    const threshold = this.config.analystStrongBuyThreshold ?? 4.5;
-    const w = analystWeightedAverage(d.analystDetail);
-    const grade = (w >= threshold) ? 'STRONG_BUY' : analystGradeFromWeighted(w);
-    return { ...d, analyst: grade, analystWeighted: w };
+    // 서버 결과를 그대로 사용. 가중 평균만 클라이언트에서 계산 (표시용)
+    if (d.analystDetail) {
+      const w = analystWeightedAverage(d.analystDetail);
+      return { ...d, analystWeighted: w };
+    }
+    return d;
   },
 
   refresh() {
@@ -255,7 +269,7 @@ const App = {
     const elapsed = now - this._lastRefresh;
     if (this._lastRefresh && elapsed < 60000) {
       const remain = Math.ceil((60000 - elapsed) / 1000);
-      App.alert(`너무 자주 새로고침했습니다.\n${remain}초 후 다시 시도하세요.`, '잠시만요');
+      App.alert(`너무 자주 새로고침했습니다.\n${remain}초 후 다시 시도하세요.`, '⏱️ 잠시만요');
       return;
     }
     this._lastRefresh = now;
@@ -458,7 +472,7 @@ const App = {
   // ============================================================
   // 커스텀 모달
   // ============================================================
-  _showModal({ icon = 'ℹ️', type = 'info', title, message, confirmText = '확인', cancelText, onConfirm, onCancel }) {
+  _showModal({ type = 'info', title, message, confirmText = '확인', cancelText, onConfirm, onCancel }) {
     return new Promise(resolve => {
       const existing = document.querySelector('.modal-overlay');
       if (existing) existing.remove();
@@ -466,7 +480,6 @@ const App = {
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
 
-      const iconMap = { info: 'ℹ️', warn: '⚠️', danger: '⚠️', success: '✅' };
       const hasCancel = !!cancelText;
 
       overlay.innerHTML = `
@@ -533,6 +546,90 @@ const App = {
       message,
       confirmText,
       cancelText
+    });
+  },
+
+  // ============================================================
+  // 설정 잠금 인증
+  // ============================================================
+  isSettingsUnlocked() {
+    try {
+      const raw = localStorage.getItem(this.AUTH_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      return data.expiresAt > Date.now();
+    } catch (e) { return false; }
+  },
+
+  unlockSettings() {
+    const data = { expiresAt: Date.now() + this.AUTH_TTL };
+    localStorage.setItem(this.AUTH_KEY, JSON.stringify(data));
+  },
+
+  lockSettings() {
+    localStorage.removeItem(this.AUTH_KEY);
+  },
+
+  async requireSettingsAuth() {
+    if (this.isSettingsUnlocked()) return true;
+
+    const password = await this._showPasswordModal();
+    if (password === null) return false;
+
+    if (password === this.SETTINGS_PASSWORD) {
+      this.unlockSettings();
+      this.showToast('🔓 설정 잠금 해제');
+      return true;
+    } else {
+      await this.alert('비밀번호가 틀렸습니다.', '🔒 인증 실패');
+      return false;
+    }
+  },
+
+  _showPasswordModal() {
+    return new Promise(resolve => {
+      const existing = document.querySelector('.modal-overlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+
+      overlay.innerHTML = `
+        <div class="modal-box">
+          <div class="modal-title">🔒 설정 잠금</div>
+          <div class="modal-message">설정에 접근하려면 비밀번호를 입력하세요.</div>
+          <input type="password" id="settingsPasswordInput" class="modal-input"
+                 placeholder="비밀번호" autocomplete="off">
+          <div class="modal-actions">
+            <button class="modal-btn secondary" data-action="cancel">취소</button>
+            <button class="modal-btn primary" data-action="confirm">확인</button>
+          </div>
+        </div>`;
+
+      document.body.appendChild(overlay);
+
+      const input = overlay.querySelector('#settingsPasswordInput');
+      setTimeout(() => input.focus(), 100);
+
+      const close = (result) => {
+        overlay.classList.add('closing');
+        setTimeout(() => overlay.remove(), 150);
+        resolve(result);
+      };
+
+      const submit = () => close(input.value);
+
+      overlay.querySelector('[data-action="confirm"]').onclick = submit;
+      overlay.querySelector('[data-action="cancel"]').onclick = () => close(null);
+
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') submit();
+        if (e.key === 'Escape') close(null);
+      };
+
+      overlay.onclick = (e) => {
+        if (e.target === overlay) close(null);
+      };
     });
   },
 
@@ -913,13 +1010,13 @@ const Settings = {
     App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
     App.renderMain();
     this.renderSummary();
-    App.alert('설정이 저장되었습니다.', '저장 완료');
+    App.alert('설정이 저장되었습니다.', '✅ 저장 완료');
   },
 
   async reset() {
     const ok = await App.confirm(
       '모든 설정을 기본값으로 복원하시겠습니까?',
-      '기본값 복원',
+      '🔄 기본값 복원',
       { type: 'warn', confirmText: '복원', cancelText: '취소' }
     );
     if (!ok) return;
