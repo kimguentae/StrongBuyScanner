@@ -1,5 +1,6 @@
 // ============================================================
-// STRONG BUY SCANNER — Frontend (app.js)
+// STRONG BUY SCANNER — Frontend (app.js) v3
+// 추가: 검색, 즐겨찾기, SB 기록, UI 개선
 // ============================================================
 
 const DEFAULT_CONFIG = {
@@ -51,10 +52,99 @@ function analystGradeFromWeighted(w) {
 }
 
 // ============================================================
+// Storage — 즐겨찾기 + SB 기록
+// ============================================================
+const Storage = {
+  FAV_KEY: 'strongBuyScanner.favorites',
+  HISTORY_KEY: 'strongBuyScanner.history',
+  HISTORY_MAX_DAYS: 30,
+
+  // 즐겨찾기
+  getFavorites() {
+    try {
+      return JSON.parse(localStorage.getItem(this.FAV_KEY) || '[]');
+    } catch (e) { return []; }
+  },
+  isFavorite(symbol) {
+    return this.getFavorites().includes(symbol);
+  },
+  toggleFavorite(symbol) {
+    const favs = this.getFavorites();
+    const idx = favs.indexOf(symbol);
+    if (idx >= 0) favs.splice(idx, 1);
+    else favs.push(symbol);
+    localStorage.setItem(this.FAV_KEY, JSON.stringify(favs));
+    return favs.includes(symbol);
+  },
+
+  // Strong Buy 기록
+  getHistory() {
+    try {
+      return JSON.parse(localStorage.getItem(this.HISTORY_KEY) || '{}');
+    } catch (e) { return {}; }
+  },
+  saveHistory(data) {
+    const history = this.getHistory();
+    const today = new Date().toISOString().slice(0, 10);
+
+    // 오늘 데이터로 갱신
+    if (!history[today]) history[today] = {};
+
+    for (const d of data) {
+      if (d.technical === 'STRONG_BUY') {
+        history[today][d.symbol] = {
+          name: d.name,
+          score: d.technicalScore,
+          analyst: d.analyst
+        };
+      }
+    }
+
+    // 오래된 기록 삭제 (30일 제한)
+    const dates = Object.keys(history).sort();
+    if (dates.length > this.HISTORY_MAX_DAYS) {
+      const remove = dates.slice(0, dates.length - this.HISTORY_MAX_DAYS);
+      remove.forEach(d => delete history[d]);
+    }
+
+    localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history));
+  },
+
+  // 종목이 언제부터 Strong Buy였는지
+  getSBSince(symbol) {
+    const history = this.getHistory();
+    const dates = Object.keys(history).sort().reverse(); // 최신부터
+    let consecutive = 0;
+    let since = null;
+
+    for (const date of dates) {
+      if (history[date][symbol]) {
+        consecutive++;
+        since = date;
+      } else {
+        break;  // 연속 끊김
+      }
+    }
+
+    if (consecutive === 0) return null;
+
+    const days = consecutive;
+    const startDate = since;
+    return { days, startDate };
+  },
+
+  clearAll() {
+    localStorage.removeItem(this.FAV_KEY);
+    localStorage.removeItem(this.HISTORY_KEY);
+  }
+};
+
+// ============================================================
 // App
 // ============================================================
 const App = {
   filter: 'all',
+  search: '',
   data: [],
   config: null,
   currentDetail: null,
@@ -79,6 +169,22 @@ const App = {
     this.renderMain();
   },
 
+  setSearch(v) {
+    this.search = v.trim().toLowerCase();
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = v ? 'block' : 'none';
+    this.renderMain();
+  },
+
+  clearSearch() {
+    this.search = '';
+    const input = document.getElementById('searchInput');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    this.renderMain();
+  },
+
   navigate(screen) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(`screen-${screen}`);
@@ -99,8 +205,16 @@ const App = {
   async loadData(forceRefresh = false) {
     if (this.loading) return;
     this.loading = true;
+
     const list = document.getElementById('strongBuyList');
-    if (list) list.innerHTML = '<div class="loading-state">데이터를 불러오는 중...</div>';
+    if (list) {
+      list.innerHTML = `
+        <div class="skeleton-list">
+          <div class="skeleton-item"></div>
+          <div class="skeleton-item"></div>
+          <div class="skeleton-item"></div>
+        </div>`;
+    }
     document.getElementById('errorBanner').classList.add('hidden');
 
     try {
@@ -115,9 +229,14 @@ const App = {
 
       this.data = (json.results || []).map(d => this.recomputeAnalyst(d));
       this.lastUpdated = json.updatedAt || null;
+
+      // Strong Buy 기록 저장
+      Storage.saveHistory(this.data);
+
       const el = document.getElementById('lastUpdated');
       if (el) el.textContent = `Last updated ${this.lastUpdated || '—'}`;
       this.renderMain();
+      Settings.renderDataStats();
     } catch (err) {
       console.error('Load failed:', err);
       const banner = document.getElementById('errorBanner');
@@ -153,8 +272,25 @@ const App = {
   },
 
   getFiltered() {
-    if (this.filter === 'all') return this.data;
-    return this.data.filter(d => d.flag === this.filter);
+    let result = this.data;
+
+    // 국가 필터
+    if (this.filter === 'US' || this.filter === 'KR') {
+      result = result.filter(d => d.flag === this.filter);
+    } else if (this.filter === 'fav') {
+      const favs = Storage.getFavorites();
+      result = result.filter(d => favs.includes(d.symbol));
+    }
+
+    // 검색 필터
+    if (this.search) {
+      result = result.filter(d =>
+        d.name.toLowerCase().includes(this.search) ||
+        d.symbol.toLowerCase().includes(this.search)
+      );
+    }
+
+    return result;
   },
 
   renderMain() {
@@ -175,19 +311,48 @@ const App = {
 
     this.renderSummaryBar(strongBuys, filtered);
 
+    // 섹션 라벨
+    const sectionLabel = document.getElementById('sectionLabel');
+    if (sectionLabel) {
+      let label = '🔥 STRONG BUY';
+      if (this.filter === 'fav') label = '⭐ 즐겨찾기';
+      if (this.search) label += ` — "${this.search}"`;
+      sectionLabel.textContent = label;
+    }
+
     if (strongBuys.length === 0) {
-      list.innerHTML = '<div class="empty-state">조건을 만족하는 Strong Buy 종목이 없습니다.</div>';
+      let msg = '조건을 만족하는 Strong Buy 종목이 없습니다.';
+      if (this.filter === 'fav' && Storage.getFavorites().length === 0) {
+        msg = '즐겨찾기한 종목이 없습니다.<br>종목 옆 ☆를 눌러 추가하세요.';
+      } else if (this.search) {
+        msg = `"${this.search}"에 해당하는 종목이 없습니다.`;
+      }
+      list.innerHTML = `<div class="empty-state">${msg}</div>`;
       return;
     }
 
-    // 🔥 불 아이콘 제거됨
-    list.innerHTML = strongBuys.map(d => `
-      <div class="stock-item" onclick="App.showDetail('${this.escapeAttr(d.symbol)}')">
-        <span class="stock-flag">${d.flag === 'US' ? '🇺🇸' : '🇰🇷'}</span>
-        <span class="stock-name">${this.escapeHtml(d.name)}</span>
-        <span class="stock-price">${d.price ? this.escapeHtml(d.price) : ''}</span>
-      </div>
-    `).join('');
+    const favs = Storage.getFavorites();
+
+    list.innerHTML = strongBuys.map(d => {
+      const isFav = favs.includes(d.symbol);
+      const sbSince = Storage.getSBSince(d.symbol);
+      let sinceBadge = '';
+      if (sbSince && sbSince.days >= 2) {
+        sinceBadge = `<span class="stock-sb-badge">${sbSince.days}일째</span>`;
+      } else if (sbSince && sbSince.days === 1) {
+        sinceBadge = `<span class="stock-sb-badge new">NEW</span>`;
+      }
+
+      return `
+        <div class="stock-item" onclick="App.showDetail('${this.escapeAttr(d.symbol)}')">
+          <span class="stock-flag">${d.flag === 'US' ? '🇺🇸' : '🇰🇷'}</span>
+          <span class="stock-name">${this.escapeHtml(d.name)}${sinceBadge}</span>
+          <span class="stock-price">${d.price ? this.escapeHtml(d.price) : ''}</span>
+          <button class="stock-fav-btn ${isFav ? 'active' : ''}"
+                  onclick="event.stopPropagation(); App.toggleFavInline('${this.escapeAttr(d.symbol)}')"
+                  title="즐겨찾기">${isFav ? '★' : '☆'}</button>
+        </div>`;
+    }).join('');
   },
 
   renderSummaryBar(strongBuys, filtered) {
@@ -196,12 +361,71 @@ const App = {
     const usCount = strongBuys.filter(d => d.flag === 'US').length;
     const krCount = strongBuys.filter(d => d.flag === 'KR').length;
     const totalTech = filtered.filter(d => d.technical === 'STRONG_BUY').length;
+    const favCount = Storage.getFavorites().length;
     el.innerHTML = `
       <div class="summary-chip">🔥 <span class="num">${strongBuys.length}</span></div>
       <div class="summary-chip">🇺🇸 <span class="num">${usCount}</span></div>
       <div class="summary-chip">🇰🇷 <span class="num">${krCount}</span></div>
+      <div class="summary-chip">⭐ <span class="num">${favCount}</span></div>
       <div class="summary-chip">Tech SB <span class="num">${totalTech}</span></div>
     `;
+  },
+
+  toggleFavInline(symbol) {
+    const isFav = Storage.toggleFavorite(symbol);
+    // 토스트 메시지
+    this.showToast(isFav ? '⭐ 즐겨찾기 추가' : '즐겨찾기 해제');
+    this.renderMain();
+  },
+
+  toggleFav() {
+    if (!this.currentDetail) return;
+    const symbol = this.currentDetail.symbol;
+    const isFav = Storage.toggleFavorite(symbol);
+    this.showToast(isFav ? '⭐ 즐겨찾기 추가' : '즐겨찾기 해제');
+    this.updateFavButton(symbol);
+  },
+
+  updateFavButton(symbol) {
+    const btn = document.getElementById('detailFavBtn');
+    if (!btn) return;
+    const isFav = Storage.isFavorite(symbol);
+    btn.textContent = isFav ? '★' : '☆';
+    btn.classList.toggle('active', isFav);
+  },
+
+  showToast(msg) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toast';
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: var(--surface2);
+        color: var(--text);
+        padding: 12px 20px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 9999;
+        opacity: 0;
+        transition: all 0.25s;
+        pointer-events: none;
+      `;
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1500);
   },
 
   showDetail(symbol) {
@@ -212,6 +436,21 @@ const App = {
     document.getElementById('detailName').textContent = d.name;
     document.getElementById('detailTicker').textContent = d.symbol;
     document.getElementById('detailPrice').textContent = d.price || 'N/A';
+
+    this.updateFavButton(symbol);
+
+    // SB 시작일 표시
+    const sinceEl = document.getElementById('sbSince');
+    const sbSince = Storage.getSBSince(symbol);
+    if (sbSince && sbSince.days >= 1) {
+      if (sbSince.days === 1) {
+        sinceEl.innerHTML = `<span class="new-badge">🆕 오늘 신규 진입</span>`;
+      } else {
+        sinceEl.innerHTML = `<span class="badge">🔥 ${sbSince.days}일째 Strong Buy</span>`;
+      }
+    } else {
+      sinceEl.innerHTML = '';
+    }
 
     const analystEl = document.getElementById('detailAnalyst');
     if (d.analyst === 'STRONG_BUY') { analystEl.textContent = '🟢 Strong Buy'; analystEl.className = 'indicator-value green'; }
@@ -247,18 +486,12 @@ const App = {
     document.getElementById('detailTechnicalScore').textContent =
       d.technicalScore != null ? `${Math.round(d.technicalScore)} / 100` : 'N/A';
 
-    // 왜 사도 좋을지 요약 생성
     this.renderWhySummary(d);
-
-    // 지표 breakdown (접기)
     this.renderBreakdown(d.breakdown);
-
-    // 뉴스
     this.renderNews(d.news);
 
     this.navigate('detail');
 
-    // 차트 로드
     this.currentChartDays = 90;
     this.loadChart(90);
   },
@@ -274,9 +507,6 @@ const App = {
     }
   },
 
-  // ============================================================
-  // 왜 사도 좋을지 친근한 요약
-  // ============================================================
   renderWhySummary(d) {
     const el = document.getElementById('whySummary');
     if (!el) return;
@@ -348,9 +578,6 @@ const App = {
     el.innerHTML = lines.join('');
   },
 
-  // ============================================================
-  // 지표 breakdown (접기)
-  // ============================================================
   renderBreakdown(b) {
     const el = document.getElementById('detailBreakdown');
     if (!el) return;
@@ -398,9 +625,6 @@ const App = {
       </div>`).join('');
   },
 
-  // ============================================================
-  // 차트
-  // ============================================================
   async loadChart(days) {
     if (!this.currentDetail) return;
     this.currentChartDays = days;
@@ -411,7 +635,11 @@ const App = {
 
     const container = document.getElementById('priceChart');
     if (!container) return;
-    container.innerHTML = '<div class="loading-state" style="padding:40px">차트 로딩 중...</div>';
+    container.innerHTML = `
+      <div class="chart-loading">
+        <div class="spinner"></div>
+        <div style="margin-top:12px;font-size:13px;color:var(--text-dim)">차트 로딩 중...</div>
+      </div>`;
 
     try {
       const res = await fetch(`/api/chart?symbol=${encodeURIComponent(this.currentDetail.symbol)}&days=${days}`);
@@ -464,7 +692,9 @@ const App = {
       borderUpColor: '#00d68f', borderDownColor: '#ff3d71',
       wickUpColor: '#00d68f', wickDownColor: '#ff3d71'
     });
-    candleSeries.setData(data.candles.map(c => ({ time: c.date, open: c.open, high: c.high, low: c.low, close: c.close })));
+    candleSeries.setData(data.candles.map(c => ({
+      time: c.date, open: c.open, high: c.high, low: c.low, close: c.close
+    })));
     this.chartSeries.candles = candleSeries;
 
     if (data.ma20 && data.ma20.length) {
@@ -523,6 +753,14 @@ const App = {
     setVisible(this.chartSeries.ma200, maOn);
     setVisible(this.chartSeries.bbUpper, bbOn);
     setVisible(this.chartSeries.bbLower, bbOn);
+  },
+
+  clearAllHistory() {
+    if (!confirm('모든 즐겨찾기와 기록을 삭제하시겠습니까?')) return;
+    Storage.clearAll();
+    this.renderMain();
+    Settings.renderDataStats();
+    this.showToast('🗑️ 모든 기록이 삭제되었습니다');
   },
 
   escapeHtml(str) {
@@ -638,6 +876,7 @@ const Settings = {
 
     this.updateTotalDisplay();
     this.renderSummary();
+    this.renderDataStats();
   },
 
   renderSummary() {
@@ -653,6 +892,20 @@ const Settings = {
         <div class="summary-item"><span class="label">메인 최소등급</span><span class="value">${gradeLabel}</span></div>
         <div class="summary-item"><span class="label">N/A 허용</span><span class="value ${c.allowAnalystNA ? 'green' : ''}">${c.allowAnalystNA ? 'ON' : 'OFF'}</span></div>
       </div>`;
+  },
+
+  renderDataStats() {
+    const favEl = document.getElementById('favCount');
+    const histEl = document.getElementById('historyCount');
+    if (favEl) {
+      const favs = Storage.getFavorites();
+      favEl.textContent = `${favs.length}개 종목`;
+    }
+    if (histEl) {
+      const history = Storage.getHistory();
+      const days = Object.keys(history).length;
+      histEl.textContent = `${days}일 기록`;
+    }
   },
 
   renderBands(containerId, bands, type) {

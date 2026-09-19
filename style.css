@@ -1190,3 +1190,277 @@ body {
   background: var(--green-dim);
   color: var(--green);
 }
+
+/* ============================================================
+   v3 추가: 검색, 즐겨찾기, 로딩, SB 기록
+   ============================================================ */
+
+/* ===== 검색 바 ===== */
+.search-bar {
+  position: relative;
+  margin: 12px 0 0;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 12px 40px 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface2);
+}
+
+.search-bar input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.clear-btn:hover {
+  color: var(--text);
+}
+
+/* ===== 즐겨찾기 필터 ===== */
+.fav-filter.active {
+  background: #ffaa0022;
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+/* ===== 종목 카드 ===== */
+.stock-item {
+  position: relative;
+  padding-right: 56px;
+}
+
+.stock-fav-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+  color: var(--text-dim);
+  transition: all 0.15s;
+  border-radius: 50%;
+}
+
+.stock-fav-btn:hover {
+  background: var(--surface2);
+  transform: translateY(-50%) scale(1.15);
+}
+
+.stock-fav-btn.active {
+  color: var(--yellow);
+  text-shadow: 0 0 8px #ffaa0066;
+}
+
+/* ===== 상세 즐겨찾기 버튼 ===== */
+.detail-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.fav-btn-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 10px;
+  line-height: 1;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.fav-btn-detail:hover {
+  background: var(--surface2);
+  transform: scale(1.05);
+}
+
+.fav-btn-detail.active {
+  color: var(--yellow);
+  border-color: var(--yellow);
+  background: #ffaa0015;
+  text-shadow: 0 0 8px #ffaa0066;
+}
+
+/* ===== Strong Buy 시작일 ===== */
+.sb-since {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sb-since .badge {
+  background: var(--green-dim);
+  color: var(--green);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.sb-since .new-badge {
+  background: #ffaa0022;
+  color: var(--yellow);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* ===== 로딩 스피너 ===== */
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 320px;
+}
+
+/* ===== 스켈레톤 ===== */
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-item {
+  height: 68px;
+  background: linear-gradient(
+    90deg,
+    var(--surface) 0%,
+    var(--surface2) 50%,
+    var(--surface) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ===== 종목 카드 호버/전환 ===== */
+.stock-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stock-item:hover {
+  background: var(--surface2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: var(--accent);
+}
+
+.stock-item:active {
+  transform: translateY(0);
+}
+
+/* ===== 화면 전환 애니메이션 ===== */
+.screen.active {
+  animation: slideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== 필터 버튼 개선 ===== */
+.filter-bar {
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  min-width: 0;
+}
+
+.fav-filter {
+  flex: 1;
+  min-width: 90px;
+}
+
+/* ===== 종목 카드에 SB 뱃지 ===== */
+.stock-sb-badge {
+  font-size: 10px;
+  background: var(--green-dim);
+  color: var(--green);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.stock-sb-badge.new {
+  background: #ffaa0022;
+  color: var(--yellow);
+}
+
+/* ===== 스크롤 부드럽게 ===== */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ===== 접근성: 포커스 링 ===== */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -18,18 +18,28 @@
         <button class="refresh-btn" id="refreshBtn" onclick="App.refresh()">새로고침 ↻</button>
       </header>
 
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="🔍 종목명 또는 티커 검색..." oninput="App.setSearch(this.value)">
+        <button class="clear-btn" id="clearSearchBtn" onclick="App.clearSearch()" style="display:none">×</button>
+      </div>
+
       <div class="filter-bar">
         <button class="filter-btn active" data-filter="all" onclick="App.setFilter('all')">전체</button>
         <button class="filter-btn" data-filter="US" onclick="App.setFilter('US')">🇺🇸 미국</button>
         <button class="filter-btn" data-filter="KR" onclick="App.setFilter('KR')">🇰🇷 한국</button>
+        <button class="filter-btn fav-filter" data-filter="fav" onclick="App.setFilter('fav')">⭐ 즐겨찾기</button>
       </div>
 
       <div class="summary-bar" id="summaryBar"></div>
 
       <div class="strong-buy-section">
-        <div class="section-label">🔥 STRONG BUY</div>
+        <div class="section-label" id="sectionLabel">🔥 STRONG BUY</div>
         <div id="strongBuyList" class="stock-list">
-          <div class="loading-state">데이터를 불러오는 중...</div>
+          <div class="skeleton-list">
+            <div class="skeleton-item"></div>
+            <div class="skeleton-item"></div>
+            <div class="skeleton-item"></div>
+          </div>
         </div>
       </div>
 
@@ -43,11 +53,17 @@
     <div id="screen-detail" class="screen">
       <div class="detail-header">
         <button class="back-btn" onclick="App.goBack()">← 뒤로</button>
-        <div class="detail-title" id="detailName"></div>
-        <div class="detail-ticker" id="detailTicker"></div>
+        <div class="detail-title-row">
+          <div>
+            <div class="detail-title" id="detailName"></div>
+            <div class="detail-ticker" id="detailTicker"></div>
+          </div>
+          <button class="fav-btn-detail" id="detailFavBtn" onclick="App.toggleFav()">☆</button>
+        </div>
       </div>
 
       <div class="detail-price" id="detailPrice"></div>
+      <div class="sb-since" id="sbSince"></div>
 
       <div class="detail-divider"></div>
 
@@ -66,13 +82,11 @@
         </div>
         <div class="technical-score-big" id="detailTechnicalScore">— / 100</div>
 
-        <!-- 왜 사도 좋을지 요약 -->
         <div class="why-summary" id="whySummary"></div>
       </div>
 
       <div class="detail-divider"></div>
 
-      <!-- ===== 캔들 차트 ===== -->
       <div class="chart-section">
         <div class="section-label">📈 PRICE CHART</div>
         <div class="chart-controls">
@@ -85,12 +99,16 @@
           <label class="toggle-item"><input type="checkbox" id="toggleMA" checked onchange="App.applyChartToggles()"> 이동평균선 (MA)</label>
           <label class="toggle-item"><input type="checkbox" id="toggleBB" onchange="App.applyChartToggles()"> 볼린저밴드</label>
         </div>
-        <div id="priceChart" class="price-chart"></div>
+        <div id="priceChart" class="price-chart">
+          <div class="chart-loading">
+            <div class="spinner"></div>
+            <div style="margin-top:12px;font-size:13px;color:var(--text-dim)">차트 로딩 중...</div>
+          </div>
+        </div>
       </div>
 
       <div class="detail-divider"></div>
 
-      <!-- ===== 지표 breakdown (접기) ===== -->
       <div id="detailBreakdown"></div>
 
       <div class="detail-divider"></div>
@@ -131,9 +149,7 @@
                        oninput="document.getElementById('cfg-analyst-strongbuy-val').textContent=this.value">
                 <span class="range-value" id="cfg-analyst-strongbuy-val">4.5</span>
               </div>
-              <div class="field-help">
-                가중 평균이 이 값 이상이면 Strong Buy. (5=Strong Buy, 4=Buy, 3=Hold, 2=Sell, 1=Strong Sell)
-              </div>
+              <div class="field-help">5=Strong Buy, 4=Buy, 3=Hold, 2=Sell, 1=Strong Sell</div>
             </div>
 
             <div class="field">
@@ -258,6 +274,26 @@
             <span class="group-toggle"></span>
           </summary>
           <div class="group-body"><div class="bb-bands" id="bbBands"></div></div>
+        </details>
+
+        <!-- 데이터 관리 -->
+        <details class="settings-group">
+          <summary class="group-summary">
+            <span class="group-icon">💾</span>
+            <span class="group-title">데이터 관리</span>
+            <span class="group-toggle"></span>
+          </summary>
+          <div class="group-body">
+            <div class="field">
+              <label>즐겨찾기</label>
+              <div class="field-help" id="favCount">0개 종목</div>
+            </div>
+            <div class="field">
+              <label>Strong Buy 기록</label>
+              <div class="field-help" id="historyCount">0일 기록</div>
+            </div>
+            <button class="reset-btn" style="margin-top:12px" onclick="App.clearAllHistory()">모든 기록 삭제</button>
+          </div>
         </details>
 
       </div>
