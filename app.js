@@ -1,6 +1,6 @@
 // ============================================================
-// STRONG BUY SCANNER — Frontend (app.js) v3
-// 추가: 검색, 즐겨찾기, SB 기록, UI 개선
+// STRONG BUY SCANNER — Frontend (app.js) v5
+// 추가: 검색, 즐겨찾기, SB 기록, Don't Buy, 커스텀 모달
 // ============================================================
 
 const DEFAULT_CONFIG = {
@@ -59,7 +59,6 @@ const Storage = {
   HISTORY_KEY: 'strongBuyScanner.history',
   HISTORY_MAX_DAYS: 30,
 
-  // 즐겨찾기
   getFavorites() {
     try {
       return JSON.parse(localStorage.getItem(this.FAV_KEY) || '[]');
@@ -77,7 +76,6 @@ const Storage = {
     return favs.includes(symbol);
   },
 
-  // Strong Buy 기록
   getHistory() {
     try {
       return JSON.parse(localStorage.getItem(this.HISTORY_KEY) || '{}');
@@ -86,8 +84,6 @@ const Storage = {
   saveHistory(data) {
     const history = this.getHistory();
     const today = new Date().toISOString().slice(0, 10);
-
-    // 오늘 데이터로 갱신
     if (!history[today]) history[today] = {};
 
     for (const d of data) {
@@ -100,7 +96,6 @@ const Storage = {
       }
     }
 
-    // 오래된 기록 삭제 (30일 제한)
     const dates = Object.keys(history).sort();
     if (dates.length > this.HISTORY_MAX_DAYS) {
       const remove = dates.slice(0, dates.length - this.HISTORY_MAX_DAYS);
@@ -110,10 +105,9 @@ const Storage = {
     localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history));
   },
 
-  // 종목이 언제부터 Strong Buy였는지
   getSBSince(symbol) {
     const history = this.getHistory();
-    const dates = Object.keys(history).sort().reverse(); // 최신부터
+    const dates = Object.keys(history).sort().reverse();
     let consecutive = 0;
     let since = null;
 
@@ -122,15 +116,13 @@ const Storage = {
         consecutive++;
         since = date;
       } else {
-        break;  // 연속 끊김
+        break;
       }
     }
 
     if (consecutive === 0) return null;
 
-    const days = consecutive;
-    const startDate = since;
-    return { days, startDate };
+    return { days: consecutive, startDate: since };
   },
 
   clearAll() {
@@ -230,7 +222,6 @@ const App = {
       this.data = (json.results || []).map(d => this.recomputeAnalyst(d));
       this.lastUpdated = json.updatedAt || null;
 
-      // Strong Buy 기록 저장
       Storage.saveHistory(this.data);
 
       const el = document.getElementById('lastUpdated');
@@ -264,7 +255,7 @@ const App = {
     const elapsed = now - this._lastRefresh;
     if (this._lastRefresh && elapsed < 60000) {
       const remain = Math.ceil((60000 - elapsed) / 1000);
-      alert(`너무 자주 새로고침했습니다.\n${remain}초 후 다시 시도하세요.`);
+      App.alert(`너무 자주 새로고침했습니다.\n${remain}초 후 다시 시도하세요.`, '⏱️ 잠시만요');
       return;
     }
     this._lastRefresh = now;
@@ -274,7 +265,6 @@ const App = {
   getFiltered() {
     let result = this.data;
 
-    // 국가 필터
     if (this.filter === 'US' || this.filter === 'KR') {
       result = result.filter(d => d.flag === this.filter);
     } else if (this.filter === 'fav') {
@@ -282,7 +272,6 @@ const App = {
       result = result.filter(d => favs.includes(d.symbol));
     }
 
-    // 검색 필터
     if (this.search) {
       result = result.filter(d =>
         d.name.toLowerCase().includes(this.search) ||
@@ -293,7 +282,7 @@ const App = {
     return result;
   },
 
-    renderMain() {
+  renderMain() {
     const list = document.getElementById('strongBuyList');
     const dontBuyList = document.getElementById('dontBuyList');
     const dontBuySection = document.getElementById('dontBuySection');
@@ -304,7 +293,6 @@ const App = {
     const minRank = ANALYST_GRADE_RANK[minGrade] ?? 2;
     const allowNA = !!this.config.allowAnalystNA;
 
-    // Strong Buy 조건
     const isStrongBuy = d => {
       if (d.technical !== 'STRONG_BUY') return false;
       if (allowNA && (!d.analyst || d.analyst === 'N/A')) return true;
@@ -315,7 +303,6 @@ const App = {
     const strongBuys = filtered.filter(isStrongBuy);
     const dontBuys = filtered.filter(d => !isStrongBuy(d));
 
-    // Don't Buy 정렬: 등급 순 (BUY > HOLD > SELL > STRONG_SELL), 그 안에서 점수 내림차순
     const gradeOrder = { BUY: 4, HOLD: 3, SELL: 2, STRONG_SELL: 1, 'N/A': 0 };
     dontBuys.sort((a, b) => {
       const ga = gradeOrder[a.technical] ?? 0;
@@ -326,7 +313,6 @@ const App = {
 
     this.renderSummaryBar(strongBuys, filtered);
 
-    // 섹션 라벨
     const sectionLabel = document.getElementById('sectionLabel');
     if (sectionLabel) {
       let label = '🔥 STRONG BUY';
@@ -335,7 +321,7 @@ const App = {
       sectionLabel.textContent = label;
     }
 
-    // ===== Strong Buy 렌더 =====
+    // Strong Buy 렌더
     if (strongBuys.length === 0) {
       let msg = '조건을 만족하는 Strong Buy 종목이 없습니다.';
       if (this.filter === 'fav' && Storage.getFavorites().length === 0) {
@@ -349,7 +335,7 @@ const App = {
       list.innerHTML = strongBuys.map(d => this.renderStockItem(d, favs)).join('');
     }
 
-    // ===== Don't Buy 렌더 =====
+    // Don't Buy 렌더
     if (!dontBuyList || !dontBuySection) return;
 
     if (dontBuys.length === 0) {
@@ -364,7 +350,6 @@ const App = {
     }
   },
 
-  // 종목 아이템 렌더 헬퍼 (Strong Buy / Don't Buy 공용)
   renderStockItem(d, favs, showGrade = false) {
     const isFav = favs.includes(d.symbol);
     const sbSince = Storage.getSBSince(d.symbol);
@@ -375,14 +360,12 @@ const App = {
       sinceBadge = `<span class="stock-sb-badge new">NEW</span>`;
     }
 
-    // 등급 뱃지 (Don't Buy에서만)
     let gradeBadge = '';
     if (showGrade && d.technical) {
       const grade = d.technical.toLowerCase().replace('_', '-');
       gradeBadge = `<span class="grade-badge grade-${grade}">${this.gradeLabel(d.technical)}</span>`;
     }
 
-    // 점수 표시 (Don't Buy에서만)
     const scoreMini = showGrade && d.technicalScore != null
       ? `<span class="stock-score-mini">${Math.round(d.technicalScore)}</span>`
       : '';
@@ -418,7 +401,6 @@ const App = {
 
   toggleFavInline(symbol) {
     const isFav = Storage.toggleFavorite(symbol);
-    // 토스트 메시지
     this.showToast(isFav ? '⭐ 즐겨찾기 추가' : '즐겨찾기 해제');
     this.renderMain();
   },
@@ -473,6 +455,88 @@ const App = {
     }, 1500);
   },
 
+  // ============================================================
+  // 커스텀 모달
+  // ============================================================
+  _showModal({ icon = 'ℹ️', type = 'info', title, message, confirmText = '확인', cancelText, onConfirm, onCancel }) {
+    return new Promise(resolve => {
+      const existing = document.querySelector('.modal-overlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+
+      const iconMap = { info: 'ℹ️', warn: '⚠️', danger: '⚠️', success: '✅' };
+      const hasCancel = !!cancelText;
+
+      overlay.innerHTML = `
+        <div class="modal-box">
+          <div class="modal-icon ${type}">${iconMap[type] || icon}</div>
+          <div class="modal-title">${this.escapeHtml(title || '')}</div>
+          <div class="modal-message">${this.escapeHtml(message || '')}</div>
+          <div class="modal-actions">
+            ${hasCancel ? `<button class="modal-btn secondary" data-action="cancel">${this.escapeHtml(cancelText)}</button>` : ''}
+            <button class="modal-btn ${type === 'danger' ? 'danger' : 'primary'}" data-action="confirm">${this.escapeHtml(confirmText)}</button>
+          </div>
+        </div>`;
+
+      document.body.appendChild(overlay);
+
+      const close = (result) => {
+        overlay.classList.add('closing');
+        setTimeout(() => overlay.remove(), 150);
+        resolve(result);
+      };
+
+      overlay.querySelector('[data-action="confirm"]').onclick = () => {
+        if (onConfirm) onConfirm();
+        close(true);
+      };
+
+      if (hasCancel) {
+        overlay.querySelector('[data-action="cancel"]').onclick = () => {
+          if (onCancel) onCancel();
+          close(false);
+        };
+      }
+
+      overlay.onclick = (e) => {
+        if (e.target === overlay) {
+          if (onCancel) onCancel();
+          close(false);
+        }
+      };
+
+      const onEsc = (e) => {
+        if (e.key === 'Escape') {
+          document.removeEventListener('keydown', onEsc);
+          if (onCancel) onCancel();
+          close(false);
+        }
+      };
+      document.addEventListener('keydown', onEsc);
+    });
+  },
+
+  alert(message, title = '알림') {
+    return this._showModal({
+      type: 'info',
+      title,
+      message,
+      confirmText: '확인'
+    });
+  },
+
+  confirm(message, title = '확인', { type = 'warn', confirmText = '확인', cancelText = '취소' } = {}) {
+    return this._showModal({
+      type,
+      title,
+      message,
+      confirmText,
+      cancelText
+    });
+  },
+
   showDetail(symbol) {
     const d = this.data.find(x => x.symbol === symbol);
     if (!d) return;
@@ -484,7 +548,6 @@ const App = {
 
     this.updateFavButton(symbol);
 
-    // SB 시작일 표시
     const sinceEl = document.getElementById('sbSince');
     const sbSince = Storage.getSBSince(symbol);
     if (sbSince && sbSince.days >= 1) {
@@ -800,8 +863,13 @@ const App = {
     setVisible(this.chartSeries.bbLower, bbOn);
   },
 
-  clearAllHistory() {
-    if (!confirm('모든 즐겨찾기와 기록을 삭제하시겠습니까?')) return;
+  async clearAllHistory() {
+    const ok = await App.confirm(
+      '모든 즐겨찾기와 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+      '⚠️ 모든 기록 삭제',
+      { type: 'danger', confirmText: '삭제', cancelText: '취소' }
+    );
+    if (!ok) return;
     Storage.clearAll();
     this.renderMain();
     Settings.renderDataStats();
@@ -837,23 +905,30 @@ const Settings = {
   save() {
     const cfg = this.readFromUI();
     const errors = this.validate(cfg);
-    if (errors.length) { alert('설정 오류:\n' + errors.join('\n')); return; }
+    if (errors.length) {
+      App.alert('설정 오류:\n' + errors.join('\n'), '⚠️ 확인이 필요해요');
+      return;
+    }
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cfg));
     App.config = cfg;
     App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
     App.renderMain();
     this.renderSummary();
-    alert('설정이 저장되었습니다.');
+    App.alert('설정이 저장되었습니다.', '✅ 저장 완료');
   },
 
-  reset() {
-    if (!confirm('모든 설정을 기본값으로 복원하시겠습니까?')) return;
+  async reset() {
+    const ok = await App.confirm(
+      '모든 설정을 기본값으로 복원하시겠습니까?',
+      '🔄 기본값 복원',
+      { type: 'warn', confirmText: '복원', cancelText: '취소' }
+    );
+    if (!ok) return;
     localStorage.removeItem(this.STORAGE_KEY);
     App.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
     this.renderAll();
     App.renderMain();
-    alert('기본값으로 복원되었습니다.');
   },
 
   validate(cfg) {
