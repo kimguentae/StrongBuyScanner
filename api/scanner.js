@@ -1,6 +1,6 @@
 // ============================================================
 // /api/scanner — 메인 스캔 엔드포인트
-// Rate limit 대응: 캐시 1시간, 동시성 2
+// 클라이언트 config 반영 (POST 요청 시)
 // ============================================================
 
 const { getMarketData }     = require('../lib/providers/marketProvider');
@@ -11,8 +11,9 @@ const { calcTechnicalScore, gradeFromScore } = require('../lib/engine/technicalS
 const { checkHardGates, checkAnalystStrongBuy } = require('../lib/engine/strongBuy');
 const { getUniverse }       = require('../lib/universe');
 const { cacheGet, cacheSet } = require('../lib/cache');
-const CACHE_TTL = 60 * 60;      // 1시간
-const CONCURRENCY = 2;          // 동시성 2 (rate limit 여유)
+
+const CACHE_TTL = 60 * 60;   // 1시간
+const CONCURRENCY = 2;       // 동시성 2
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -25,9 +26,10 @@ module.exports = async (req, res) => {
 
   let force = false;
   let clientConfig = null;
+
   if (req.method === 'POST') {
     try {
-            const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       force = body && body.force === true;
       clientConfig = body && body.config ? body.config : null;
     } catch (e) { /* ignore */ }
@@ -52,8 +54,11 @@ module.exports = async (req, res) => {
       });
     }
 
-const results = await runWithConcurrency(universe, CONCURRENCY, 
-  (stock) => analyzeOne(stock, clientConfig));
+    const results = await runWithConcurrency(
+      universe,
+      CONCURRENCY,
+      (stock) => analyzeOne(stock, clientConfig)
+    );
 
     const payload = {
       results: results.filter(Boolean),
@@ -72,7 +77,10 @@ const results = await runWithConcurrency(universe, CONCURRENCY,
   }
 };
 
-  const config = getConfigFromRequest();
+// ------------------------------------------------------------
+// 개별 종목 분석
+// ------------------------------------------------------------
+async function analyzeOne(stock, clientConfig) {
   const base = {
     symbol: stock.ticker,
     name: stock.name,
@@ -94,11 +102,12 @@ const results = await runWithConcurrency(universe, CONCURRENCY,
 
     // 2) 기술지표 (내부 계산)
     let tech = null;
-    if (market) tech = await safe(() => getTechnicalData(market));
+    if (market) {
+      tech = await safe(() => getTechnicalData(market));
+    }
 
     if (tech) {
-      const config = getCon  const config = clientConfig || getConfigFromRequest();
-figFromRequest();
+      const config = clientConfig || getConfigFromRequest();
       const { score, breakdown } = calcTechnicalScore(tech, config);
       base.technicalScore = score;
       base.breakdown = breakdown;
@@ -106,9 +115,13 @@ figFromRequest();
       const gates = checkHardGates(tech, config);
       const grade = gradeFromScore(score, config);
 
-      if (grade === 'STRONG_BUY' && gates.pass) base.technical = 'STRONG_BUY';
-      else if (grade === 'N/A') base.technical = 'N/A';
-      else base.technical = grade;
+      if (grade === 'STRONG_BUY' && gates.pass) {
+        base.technical = 'STRONG_BUY';
+      } else if (grade === 'N/A') {
+        base.technical = 'N/A';
+      } else {
+        base.technical = grade;
+      }
     }
 
     // 3) Analyst
@@ -122,7 +135,9 @@ figFromRequest();
 
     // 4) 뉴스
     const news = await safe(() => getNews(stock));
-    if (Array.isArray(news)) base.news = news.slice(0, 5);
+    if (Array.isArray(news)) {
+      base.news = news.slice(0, 5);
+    }
 
     return base;
   } catch (err) {
@@ -131,6 +146,9 @@ figFromRequest();
   }
 }
 
+// ------------------------------------------------------------
+// 유틸
+// ------------------------------------------------------------
 async function safe(fn) {
   try { return await fn(); } catch (e) {
     console.warn('[safe]', e.message);
