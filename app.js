@@ -8,57 +8,40 @@ const DEFAULT_CONFIG = {
   analystStrongBuyThreshold: 4.5,
   analystMinGrade: 'BUY',
   allowAnalystNA: true,
-  hardGates: {
-    ma50: true, ma200: true, macd: true, adx: true, di: true, adxMin: 20
-  },
+  hardGates: { ma50: true, ma200: true, macd: true, adx: true, di: true, adxMin: 20 },
   maPoints: { ma20: 10, ma50: 10, ma200: 10 },
   macdPoints: { signal: 10, zero: 5, hist: 5 },
   rsiBands: [
-    { min: 75, max: Infinity, score: 0 },
-    { min: 70, max: 75, score: 8 },
-    { min: 65, max: 70, score: 13 },
-    { min: 55, max: 65, score: 15 },
-    { min: 50, max: 55, score: 12 },
-    { min: 40, max: 50, score: 7 },
+    { min: 75, max: Infinity, score: 0 }, { min: 70, max: 75, score: 8 },
+    { min: 65, max: 70, score: 13 }, { min: 55, max: 65, score: 15 },
+    { min: 50, max: 55, score: 12 }, { min: 40, max: 50, score: 7 },
     { min: 0, max: 40, score: 3 }
   ],
   adxBands: [
-    { min: 30, max: Infinity, score: 15 },
-    { min: 25, max: 30, score: 13 },
-    { min: 20, max: 25, score: 9 },
-    { min: 15, max: 20, score: 5 },
+    { min: 30, max: Infinity, score: 15 }, { min: 25, max: 30, score: 13 },
+    { min: 20, max: 25, score: 9 }, { min: 15, max: 20, score: 5 },
     { min: 0, max: 15, score: 2 }
   ],
   bbBands: [
-    { min: 0.75, max: 0.90, score: 20 },
-    { min: 0.60, max: 0.75, score: 17 },
-    { min: 0.50, max: 0.60, score: 13 },
-    { min: 0.45, max: 0.50, score: 8 },
-    { min: 0.20, max: 0.45, score: 4 },
-    { min: 0.00, max: 0.20, score: 0 }
+    { min: 0.75, max: 0.90, score: 20 }, { min: 0.60, max: 0.75, score: 17 },
+    { min: 0.50, max: 0.60, score: 13 }, { min: 0.45, max: 0.50, score: 8 },
+    { min: 0.20, max: 0.45, score: 4 }, { min: 0.00, max: 0.20, score: 0 }
   ]
 };
 
-const ANALYST_GRADE_RANK = {
-  STRONG_BUY: 3, BUY: 2, HOLD: 1, SELL: 0, STRONG_SELL: 0, 'N/A': -1
-};
+const ANALYST_GRADE_RANK = { STRONG_BUY: 3, BUY: 2, HOLD: 1, SELL: 0, STRONG_SELL: 0, 'N/A': -1 };
 
 function analystWeightedAverage(detail) {
   if (!detail) return 0;
-  const sb = detail.strongBuy || 0;
-  const b  = detail.buy || 0;
-  const h  = detail.hold || 0;
-  const s  = detail.sell || 0;
-  const ss = detail.strongSell || 0;
+  const sb = detail.strongBuy || 0, b = detail.buy || 0, h = detail.hold || 0;
+  const s = detail.sell || 0, ss = detail.strongSell || 0;
   const total = sb + b + h + s + ss;
   if (total === 0) {
-    // Naver 같은 경우 score가 직접 있음
     if (detail.score != null) return Number(detail.score);
     return 0;
   }
   return (sb * 5 + b * 4 + h * 3 + s * 2 + ss * 1) / total;
 }
-
 function analystGradeFromWeighted(w) {
   if (w >= 4.5) return 'STRONG_BUY';
   if (w >= 3.5) return 'BUY';
@@ -75,6 +58,9 @@ const App = {
   data: [],
   config: null,
   currentDetail: null,
+  currentChartDays: 90,
+  chart: null,
+  chartSeries: {},
   lastUpdated: null,
   loading: false,
   _lastRefresh: 0,
@@ -97,12 +83,13 @@ const App = {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(`screen-${screen}`);
     if (target) target.classList.add('active');
-
     document.querySelectorAll('.nav-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.screen === screen);
     });
-
-    if (screen === 'main') this.currentDetail = null;
+    if (screen === 'main') {
+      this.currentDetail = null;
+      this.destroyChart();
+    }
     if (screen === 'settings') Settings.renderSummary();
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
@@ -112,7 +99,6 @@ const App = {
   async loadData(forceRefresh = false) {
     if (this.loading) return;
     this.loading = true;
-
     const list = document.getElementById('strongBuyList');
     if (list) list.innerHTML = '<div class="loading-state">데이터를 불러오는 중...</div>';
     document.getElementById('errorBanner').classList.add('hidden');
@@ -121,21 +107,16 @@ const App = {
       const res = await fetch('/api/scanner', {
         method: forceRefresh ? 'POST' : 'GET',
         headers: { 'Content-Type': 'application/json' },
-        body: forceRefresh
-          ? JSON.stringify({ force: true, config: this.config })
-          : undefined
+        body: forceRefresh ? JSON.stringify({ force: true, config: this.config }) : undefined
       });
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
 
       this.data = (json.results || []).map(d => this.recomputeAnalyst(d));
       this.lastUpdated = json.updatedAt || null;
-
       const el = document.getElementById('lastUpdated');
       if (el) el.textContent = `Last updated ${this.lastUpdated || '—'}`;
-
       this.renderMain();
     } catch (err) {
       console.error('Load failed:', err);
@@ -199,12 +180,12 @@ const App = {
       return;
     }
 
+    // 🔥 불 아이콘 제거됨
     list.innerHTML = strongBuys.map(d => `
       <div class="stock-item" onclick="App.showDetail('${this.escapeAttr(d.symbol)}')">
         <span class="stock-flag">${d.flag === 'US' ? '🇺🇸' : '🇰🇷'}</span>
         <span class="stock-name">${this.escapeHtml(d.name)}</span>
         <span class="stock-price">${d.price ? this.escapeHtml(d.price) : ''}</span>
-        <span class="stock-fire">🔥</span>
       </div>
     `).join('');
   },
@@ -212,11 +193,9 @@ const App = {
   renderSummaryBar(strongBuys, filtered) {
     const el = document.getElementById('summaryBar');
     if (!el) return;
-
     const usCount = strongBuys.filter(d => d.flag === 'US').length;
     const krCount = strongBuys.filter(d => d.flag === 'KR').length;
     const totalTech = filtered.filter(d => d.technical === 'STRONG_BUY').length;
-
     el.innerHTML = `
       <div class="summary-chip">🔥 <span class="num">${strongBuys.length}</span></div>
       <div class="summary-chip">🇺🇸 <span class="num">${usCount}</span></div>
@@ -235,16 +214,9 @@ const App = {
     document.getElementById('detailPrice').textContent = d.price || 'N/A';
 
     const analystEl = document.getElementById('detailAnalyst');
-    if (d.analyst === 'STRONG_BUY') {
-      analystEl.textContent = '🟢 Strong Buy';
-      analystEl.className = 'indicator-value green';
-    } else if (!d.analyst || d.analyst === 'N/A') {
-      analystEl.textContent = 'N/A';
-      analystEl.className = 'indicator-value';
-    } else {
-      analystEl.textContent = this.gradeLabel(d.analyst);
-      analystEl.className = 'indicator-value yellow';
-    }
+    if (d.analyst === 'STRONG_BUY') { analystEl.textContent = '🟢 Strong Buy'; analystEl.className = 'indicator-value green'; }
+    else if (!d.analyst || d.analyst === 'N/A') { analystEl.textContent = 'N/A'; analystEl.className = 'indicator-value'; }
+    else { analystEl.textContent = this.gradeLabel(d.analyst); analystEl.className = 'indicator-value yellow'; }
 
     const detailEl = document.getElementById('detailAnalystDetail');
     if (d.analystDetail && detailEl) {
@@ -259,40 +231,36 @@ const App = {
             <span>Sell ${a.sell ?? 0}</span>
             <span>Strong Sell ${a.strongSell ?? 0}</span>
           </div>
-          <div class="analyst-weighted">가중 평균 ${w}</div>
-        `;
+          <div class="analyst-weighted">가중 평균 ${w}</div>`;
       } else if (a.score != null) {
         detailEl.innerHTML = `
           <div class="analyst-weighted">컨센서스 ${a.score} (${a.source || ''})</div>
-          ${a.targetPrice ? `<div class="analyst-weighted">목표주가 ${a.targetPrice.toLocaleString()}</div>` : ''}
-        `;
-      } else {
-        detailEl.innerHTML = '';
-      }
-    } else if (detailEl) {
-      detailEl.innerHTML = '';
-    }
+          ${a.targetPrice ? `<div class="analyst-weighted">목표주가 ${a.targetPrice.toLocaleString()}</div>` : ''}`;
+      } else detailEl.innerHTML = '';
+    } else if (detailEl) detailEl.innerHTML = '';
 
     const techEl = document.getElementById('detailTechnicalGrade');
-    if (d.technical === 'STRONG_BUY') {
-      techEl.textContent = '🟢 Strong Buy';
-      techEl.className = 'indicator-value green';
-    } else if (!d.technical || d.technical === 'N/A') {
-      techEl.textContent = 'N/A';
-      techEl.className = 'indicator-value';
-    } else {
-      techEl.textContent = this.gradeLabel(d.technical);
-      techEl.className = 'indicator-value yellow';
-    }
+    if (d.technical === 'STRONG_BUY') { techEl.textContent = '🟢 Strong Buy'; techEl.className = 'indicator-value green'; }
+    else if (!d.technical || d.technical === 'N/A') { techEl.textContent = 'N/A'; techEl.className = 'indicator-value'; }
+    else { techEl.textContent = this.gradeLabel(d.technical); techEl.className = 'indicator-value yellow'; }
 
     document.getElementById('detailTechnicalScore').textContent =
       d.technicalScore != null ? `${Math.round(d.technicalScore)} / 100` : 'N/A';
 
+    // 왜 사도 좋을지 요약 생성
+    this.renderWhySummary(d);
+
+    // 지표 breakdown (접기)
     this.renderBreakdown(d.breakdown);
+
+    // 뉴스
     this.renderNews(d.news);
 
     this.navigate('detail');
-    this.currentDetail = d;
+
+    // 차트 로드
+    this.currentChartDays = 90;
+    this.loadChart(90);
   },
 
   gradeLabel(grade) {
@@ -306,6 +274,83 @@ const App = {
     }
   },
 
+  // ============================================================
+  // 왜 사도 좋을지 친근한 요약
+  // ============================================================
+  renderWhySummary(d) {
+    const el = document.getElementById('whySummary');
+    if (!el) return;
+    if (!d.breakdown) { el.innerHTML = ''; return; }
+
+    const b = d.breakdown;
+    const lines = [];
+
+    const grade = d.technical === 'STRONG_BUY' ? '🟢 기술적 분석상 매수 신호가 강해요' : '🟡 기술적 신호는 보통이에요';
+    lines.push(`<p>${grade}.</p>`);
+
+    if (b.ma && b.ma.conditions) {
+      const passCount = b.ma.conditions.filter(c => c.pass).length;
+      if (passCount === 3) {
+        lines.push(`<p>📈 <span class="highlight">이동평균선 3개 모두 위에 있어요.</span> 단기·중기·장기 추세가 모두 상승이라는 뜻이에요.</p>`);
+      } else if (passCount === 2) {
+        lines.push(`<p>📈 이동평균선 3개 중 2개 위에 있어요. 상승 추세지만 아직 완전히 자리 잡진 않았어요.</p>`);
+      } else if (passCount === 1) {
+        lines.push(`<p>📉 이동평균선 3개 중 1개만 위에 있어요. 추세가 약한 편이에요.</p>`);
+      } else {
+        lines.push(`<p>📉 <span class="bad">이동평균선 아래에 있어요.</span> 하락 추세이니 주의가 필요해요.</p>`);
+      }
+    }
+
+    if (b.macd && b.macd.conditions) {
+      const macdPass = b.macd.conditions.filter(c => c.pass).length;
+      if (macdPass === 3) {
+        lines.push(`<p>⚡ <span class="highlight">MACD가 강한 상승 신호를 보내고 있어요.</span> 단기 모멘텀이 살아있다는 뜻이에요.</p>`);
+      } else if (macdPass >= 1) {
+        lines.push(`<p>⚡ MACD 신호는 일부 긍정적이에요.</p>`);
+      } else {
+        lines.push(`<p>⚠️ MACD가 약세 신호를 보이고 있어요.</p>`);
+      }
+    }
+
+    if (b.rsi && b.rsi.value != null) {
+      const rsi = b.rsi.value;
+      if (rsi >= 55 && rsi <= 65) lines.push(`<p>💪 <span class="highlight">RSI ${rsi.toFixed(1)}</span> — 건강한 상승 구간이에요. 과열도 아니고 침체도 아니에요.</p>`);
+      else if (rsi > 70) lines.push(`<p>🔥 RSI ${rsi.toFixed(1)} — <span class="warn">과열 구간이에요.</span> 조정이 올 수 있어요.</p>`);
+      else if (rsi > 50) lines.push(`<p>💪 RSI ${rsi.toFixed(1)} — 완만한 상승세예요.</p>`);
+      else if (rsi >= 40) lines.push(`<p>😐 RSI ${rsi.toFixed(1)} — 중립 구간이에요.</p>`);
+      else lines.push(`<p>📉 RSI ${rsi.toFixed(1)} — <span class="bad">약세 구간이에요.</span></p>`);
+    }
+
+    if (b.adx && b.adx.value != null) {
+      const adx = b.adx.value;
+      if (adx >= 25) lines.push(`<p>🎯 <span class="highlight">ADX ${adx.toFixed(1)}</span> — 추세가 강하게 진행 중이에요.</p>`);
+      else if (adx >= 20) lines.push(`<p>🎯 ADX ${adx.toFixed(1)} — 추세가 형성되고 있어요.</p>`);
+      else lines.push(`<p>😐 ADX ${adx.toFixed(1)} — 아직 뚜렷한 추세는 아니에요.</p>`);
+    }
+
+    if (b.bb && b.bb.position != null) {
+      const pos = b.bb.position * 100;
+      if (pos >= 75 && pos <= 90) lines.push(`<p>📊 볼린저밴드 상단 근처(${pos.toFixed(0)}%) — 강세지만 과열은 아니에요.</p>`);
+      else if (pos > 90) lines.push(`<p>📊 볼린저밴드 상단 돌파(${pos.toFixed(0)}%) — <span class="warn">단기 과열 가능성이 있어요.</span></p>`);
+      else if (pos >= 50) lines.push(`<p>📊 볼린저밴드 중앙 위(${pos.toFixed(0)}%) — 안정적이에요.</p>`);
+      else if (pos >= 20) lines.push(`<p>📊 볼린저밴드 하단 쪽(${pos.toFixed(0)}%) — 반등을 노릴 수 있어요.</p>`);
+      else lines.push(`<p>📊 볼린저밴드 하단(${pos.toFixed(0)}%) — 약세 구간이에요.</p>`);
+    }
+
+    if (d.analyst === 'STRONG_BUY' || (d.analystWeighted && d.analystWeighted >= 4.0)) {
+      lines.push(`<p>✅ 애널리스트들도 <span class="highlight">긍정적</span>이에요.</p>`);
+    } else if (d.analyst === 'N/A') {
+      lines.push(`<p>ℹ️ 애널리스트 데이터는 없어서 기술적 분석만으로 판단했어요.</p>`);
+    }
+
+    lines.push(`<p style="opacity:0.7;font-size:12px;margin-top:12px">※ 이 분석은 참고용이며 투자 결정의 책임은 본인에게 있습니다.</p>`);
+
+    el.innerHTML = lines.join('');
+  },
+
+  // ============================================================
+  // 지표 breakdown (접기)
+  // ============================================================
   renderBreakdown(b) {
     const el = document.getElementById('detailBreakdown');
     if (!el) return;
@@ -317,57 +362,23 @@ const App = {
       <span>${this.escapeHtml(c.label)}</span>
     </div>`;
 
-    if (b.ma) items.push(`
-      <div class="breakdown-item">
-        <div class="breakdown-header">
-          <span class="breakdown-name">MA</span>
-          <span class="breakdown-score">${b.ma.score} / ${b.ma.max}</span>
-        </div>
-        <div class="breakdown-conditions">${(b.ma.conditions || []).map(rowHtml).join('')}</div>
-      </div>`);
+    const wrap = (icon, name, kr, score, max, bodyHtml) => `
+      <details class="breakdown-item">
+        <summary class="breakdown-summary">
+          <span class="breakdown-name">${icon} ${name}<span class="kr">${kr}</span></span>
+          <span class="breakdown-score">${score} / ${max}</span>
+        </summary>
+        <div class="breakdown-body">${bodyHtml}</div>
+      </details>`;
 
-    if (b.macd) items.push(`
-      <div class="breakdown-item">
-        <div class="breakdown-header">
-          <span class="breakdown-name">MACD</span>
-          <span class="breakdown-score">${b.macd.score} / ${b.macd.max}</span>
-        </div>
-        <div class="breakdown-conditions">${(b.macd.conditions || []).map(rowHtml).join('')}</div>
-      </div>`);
-
-    if (b.rsi) items.push(`
-      <div class="breakdown-item">
-        <div class="breakdown-header">
-          <span class="breakdown-name">RSI</span>
-          <span class="breakdown-score">${b.rsi.score} / ${b.rsi.max}</span>
-        </div>
-        <div class="breakdown-conditions">
-          <div class="condition-row"><span>RSI ${b.rsi.value != null ? b.rsi.value.toFixed(1) : 'N/A'}</span></div>
-        </div>
-      </div>`);
-
-    if (b.adx) items.push(`
-      <div class="breakdown-item">
-        <div class="breakdown-header">
-          <span class="breakdown-name">ADX</span>
-          <span class="breakdown-score">${b.adx.score} / ${b.adx.max}</span>
-        </div>
-        <div class="breakdown-conditions">
-          <div class="condition-row"><span>ADX ${b.adx.value != null ? b.adx.value.toFixed(1) : 'N/A'}</span></div>
-          ${(b.adx.conditions || []).map(rowHtml).join('')}
-        </div>
-      </div>`);
-
-    if (b.bb) items.push(`
-      <div class="breakdown-item">
-        <div class="breakdown-header">
-          <span class="breakdown-name">BOLLINGER</span>
-          <span class="breakdown-score">${b.bb.score} / ${b.bb.max}</span>
-        </div>
-        <div class="breakdown-conditions">
-          <div class="condition-row"><span>밴드 내 위치 ${b.bb.position != null ? (b.bb.position * 100).toFixed(1) + '%' : 'N/A'}</span></div>
-        </div>
-      </div>`);
+    if (b.ma) items.push(wrap('📈', 'MA', '(이동평균선)', b.ma.score, b.ma.max, (b.ma.conditions || []).map(rowHtml).join('')));
+    if (b.macd) items.push(wrap('⚡', 'MACD', '(추세 모멘텀)', b.macd.score, b.macd.max, (b.macd.conditions || []).map(rowHtml).join('')));
+    if (b.rsi) items.push(wrap('🔥', 'RSI', '(상대강도지수)', b.rsi.score, b.rsi.max,
+      `<div class="condition-row"><span>RSI <span class="condition-value">${b.rsi.value != null ? b.rsi.value.toFixed(1) : 'N/A'}</span></span></div>`));
+    if (b.adx) items.push(wrap('💪', 'ADX', '(추세 강도)', b.adx.score, b.adx.max,
+      `<div class="condition-row"><span>ADX <span class="condition-value">${b.adx.value != null ? b.adx.value.toFixed(1) : 'N/A'}</span></span></div>${(b.adx.conditions || []).map(rowHtml).join('')}`));
+    if (b.bb) items.push(wrap('📊', 'BOLLINGER', '(볼린저밴드)', b.bb.score, b.bb.max,
+      `<div class="condition-row"><span>밴드 내 위치 <span class="condition-value">${b.bb.position != null ? (b.bb.position * 100).toFixed(1) + '%' : 'N/A'}</span></span></div>`));
 
     el.innerHTML = items.length ? items.join('') : '<div class="empty-state">기술적 분석 데이터 없음</div>';
   },
@@ -375,20 +386,143 @@ const App = {
   renderNews(news) {
     const el = document.getElementById('newsList');
     if (!el) return;
-    if (!news || news.length === 0) {
-      el.innerHTML = '<div class="news-empty">뉴스 데이터 없음</div>';
-      return;
-    }
+    if (!news || news.length === 0) { el.innerHTML = '<div class="news-empty">뉴스 데이터 없음</div>'; return; }
     el.innerHTML = news.slice(0, 5).map(n => `
       <div class="news-item" onclick="window.open('${this.escapeAttr(n.url)}', '_blank')">
         <div class="news-title">${this.escapeHtml(n.title)}</div>
         <div class="news-meta">
           <span>${this.escapeHtml(n.date || '')}</span>
           <span>${this.escapeHtml(n.source || '')}</span>
-          <a class="news-link" href="${this.escapeAttr(n.url)}" target="_blank"
-             rel="noopener noreferrer" onclick="event.stopPropagation()">원문 보기 ↗</a>
+          <a class="news-link" href="${this.escapeAttr(n.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">원문 보기 ↗</a>
         </div>
       </div>`).join('');
+  },
+
+  // ============================================================
+  // 차트
+  // ============================================================
+  async loadChart(days) {
+    if (!this.currentDetail) return;
+    this.currentChartDays = days;
+
+    document.querySelectorAll('.chart-controls button').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.days, 10) === days);
+    });
+
+    const container = document.getElementById('priceChart');
+    if (!container) return;
+    container.innerHTML = '<div class="loading-state" style="padding:40px">차트 로딩 중...</div>';
+
+    try {
+      const res = await fetch(`/api/chart?symbol=${encodeURIComponent(this.currentDetail.symbol)}&days=${days}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      this.renderChart(json);
+    } catch (err) {
+      console.error('Chart failed:', err);
+      container.innerHTML = `<div class="empty-state">차트를 불러오지 못했습니다.<br>${this.escapeHtml(err.message)}</div>`;
+    }
+  },
+
+  destroyChart() {
+    if (this.chart) {
+      try { this.chart.remove(); } catch (e) {}
+      this.chart = null;
+      this.chartSeries = {};
+    }
+  },
+
+  renderChart(data) {
+    const container = document.getElementById('priceChart');
+    if (!container) return;
+    this.destroyChart();
+    container.innerHTML = '';
+
+    if (typeof LightweightCharts === 'undefined') {
+      container.innerHTML = '<div class="empty-state">차트 라이브러리를 불러오지 못했습니다.</div>';
+      return;
+    }
+
+    const chart = LightweightCharts.createChart(container, {
+      width: container.clientWidth,
+      height: 320,
+      layout: { background: { color: '#14141f' }, textColor: '#e8e8f0', fontSize: 11 },
+      grid: { vertLines: { color: '#2a2a40' }, horzLines: { color: '#2a2a40' } },
+      timeScale: { borderColor: '#2a2a40', timeVisible: false },
+      rightPriceScale: { borderColor: '#2a2a40', scaleMargins: { top: 0.1, bottom: 0.3 } },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: '#6c5ce7', width: 1, style: 2 },
+        horzLine: { color: '#6c5ce7', width: 1, style: 2 }
+      }
+    });
+    this.chart = chart;
+
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: '#00d68f', downColor: '#ff3d71',
+      borderUpColor: '#00d68f', borderDownColor: '#ff3d71',
+      wickUpColor: '#00d68f', wickDownColor: '#ff3d71'
+    });
+    candleSeries.setData(data.candles);
+    this.chartSeries.candles = candleSeries;
+
+    if (data.ma20 && data.ma20.length) {
+      const s = chart.addLineSeries({ color: '#ffaa00', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+      s.setData(data.ma20);
+      this.chartSeries.ma20 = s;
+    }
+    if (data.ma50 && data.ma50.length) {
+      const s = chart.addLineSeries({ color: '#6c5ce7', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+      s.setData(data.ma50);
+      this.chartSeries.ma50 = s;
+    }
+    if (data.ma200 && data.ma200.length) {
+      const s = chart.addLineSeries({ color: '#ff3d71', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+      s.setData(data.ma200);
+      this.chartSeries.ma200 = s;
+    }
+
+    if (data.bbUpper && data.bbUpper.length) {
+      const sU = chart.addLineSeries({ color: '#00d68f44', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+      sU.setData(data.bbUpper);
+      const sL = chart.addLineSeries({ color: '#00d68f44', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+      sL.setData(data.bbLower);
+      this.chartSeries.bbUpper = sU;
+      this.chartSeries.bbLower = sL;
+    }
+
+    const volumeSeries = chart.addHistogramSeries({
+      color: '#2a2a40',
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume'
+    });
+    volumeSeries.setData(data.candles.map(c => ({
+      time: c.date,
+      value: c.volume,
+      color: c.close >= c.open ? '#00d68f33' : '#ff3d7133'
+    })));
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 }
+    });
+    this.chartSeries.volume = volumeSeries;
+
+    chart.timeScale().fitContent();
+    this.applyChartToggles();
+  },
+
+  applyChartToggles() {
+    const maOn = document.getElementById('toggleMA')?.checked;
+    const bbOn = document.getElementById('toggleBB')?.checked;
+
+    const setVisible = (series, visible) => {
+      if (series) series.applyOptions({ visible });
+    };
+    setVisible(this.chartSeries.ma20, maOn);
+    setVisible(this.chartSeries.ma50, maOn);
+    setVisible(this.chartSeries.ma200, maOn);
+    setVisible(this.chartSeries.bbUpper, bbOn);
+    setVisible(this.chartSeries.bbLower, bbOn);
   },
 
   escapeHtml(str) {
@@ -399,8 +533,7 @@ const App = {
   },
   escapeAttr(str) {
     if (str == null) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 };
 
@@ -415,9 +548,7 @@ const Settings = {
       const raw = localStorage.getItem(this.STORAGE_KEY);
       if (!raw) return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
       return this.mergeDeep(JSON.parse(JSON.stringify(DEFAULT_CONFIG)), JSON.parse(raw));
-    } catch (e) {
-      return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-    }
+    } catch (e) { return JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
   },
 
   save() {
@@ -446,20 +577,15 @@ const Settings = {
     const errors = [];
     const wSum = cfg.weights.ma + cfg.weights.macd + cfg.weights.rsi + cfg.weights.adx + cfg.weights.bb;
     if (wSum !== 100) errors.push(`지표별 배점 합계가 ${wSum}입니다. 100이어야 합니다.`);
-
     const maSum = cfg.maPoints.ma20 + cfg.maPoints.ma50 + cfg.maPoints.ma200;
     if (maSum !== cfg.weights.ma) errors.push(`MA 세부 점수 합(${maSum})이 MA 배점(${cfg.weights.ma})과 다릅니다.`);
-
     const macdSum = cfg.macdPoints.signal + cfg.macdPoints.zero + cfg.macdPoints.hist;
     if (macdSum !== cfg.weights.macd) errors.push(`MACD 세부 점수 합(${macdSum})이 MACD 배점(${cfg.weights.macd})과 다릅니다.`);
-
     if (cfg.strongBuyThreshold < 0 || cfg.strongBuyThreshold > 100) errors.push('Technical Strong Buy 기준은 0~100.');
     if (cfg.analystStrongBuyThreshold < 1 || cfg.analystStrongBuyThreshold > 5) errors.push('Analyst 임계값은 1~5.');
-
     const rsiErr = this.checkBandOverlap(cfg.rsiBands, 'RSI'); if (rsiErr) errors.push(rsiErr);
     const adxErr = this.checkBandOverlap(cfg.adxBands, 'ADX'); if (adxErr) errors.push(adxErr);
     const bbErr = this.checkBandOverlap(cfg.bbBands, 'Bollinger'); if (bbErr) errors.push(bbErr);
-
     return errors;
   },
 
@@ -475,7 +601,6 @@ const Settings = {
 
   renderAll() {
     const c = this.load();
-
     document.getElementById('cfg-weight-ma').value = c.weights.ma;
     document.getElementById('cfg-weight-macd').value = c.weights.macd;
     document.getElementById('cfg-weight-rsi').value = c.weights.rsi;
@@ -503,7 +628,6 @@ const Settings = {
     document.getElementById('cfg-ma20').value = c.maPoints.ma20;
     document.getElementById('cfg-ma50').value = c.maPoints.ma50;
     document.getElementById('cfg-ma200').value = c.maPoints.ma200;
-
     document.getElementById('cfg-macd-signal').value = c.macdPoints.signal;
     document.getElementById('cfg-macd-zero').value = c.macdPoints.zero;
     document.getElementById('cfg-macd-hist').value = c.macdPoints.hist;
@@ -520,31 +644,15 @@ const Settings = {
     const el = document.getElementById('settingsSummary');
     if (!el) return;
     const c = this.load();
-    const gradeLabel = {
-      STRONG_BUY: 'Strong Buy만', BUY: 'Buy 이상', HOLD: 'Hold 이상'
-    }[c.analystMinGrade] || c.analystMinGrade;
-
+    const gradeLabel = { STRONG_BUY: 'Strong Buy만', BUY: 'Buy 이상', HOLD: 'Hold 이상' }[c.analystMinGrade] || c.analystMinGrade;
     el.innerHTML = `
       <div class="settings-summary-title">현재 설정</div>
       <div class="settings-summary-grid">
-        <div class="summary-item">
-          <span class="label">Technical SB</span>
-          <span class="value green">${c.strongBuyThreshold}점+</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">Analyst 임계값</span>
-          <span class="value yellow">${c.analystStrongBuyThreshold}</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">메인 최소등급</span>
-          <span class="value">${gradeLabel}</span>
-        </div>
-        <div class="summary-item">
-          <span class="label">N/A 허용</span>
-          <span class="value ${c.allowAnalystNA ? 'green' : ''}">${c.allowAnalystNA ? 'ON' : 'OFF'}</span>
-        </div>
-      </div>
-    `;
+        <div class="summary-item"><span class="label">Technical SB</span><span class="value green">${c.strongBuyThreshold}점+</span></div>
+        <div class="summary-item"><span class="label">Analyst 임계값</span><span class="value yellow">${c.analystStrongBuyThreshold}</span></div>
+        <div class="summary-item"><span class="label">메인 최소등급</span><span class="value">${gradeLabel}</span></div>
+        <div class="summary-item"><span class="label">N/A 허용</span><span class="value ${c.allowAnalystNA ? 'green' : ''}">${c.allowAnalystNA ? 'ON' : 'OFF'}</span></div>
+      </div>`;
   },
 
   renderBands(containerId, bands, type) {
@@ -564,8 +672,7 @@ const Settings = {
 
   updateTotalDisplay() {
     const get = id => parseInt(document.getElementById(id)?.value) || 0;
-    const total = get('cfg-weight-ma') + get('cfg-weight-macd') +
-                  get('cfg-weight-rsi') + get('cfg-weight-adx') + get('cfg-weight-bb');
+    const total = get('cfg-weight-ma') + get('cfg-weight-macd') + get('cfg-weight-rsi') + get('cfg-weight-adx') + get('cfg-weight-bb');
     const el = document.getElementById('cfg-weight-total');
     if (el) {
       el.textContent = total;
@@ -591,30 +698,15 @@ const Settings = {
     };
 
     const currentCfg = this.load();
-
     return {
-      weights: {
-        ma: num('cfg-weight-ma'),
-        macd: num('cfg-weight-macd'),
-        rsi: num('cfg-weight-rsi'),
-        adx: num('cfg-weight-adx'),
-        bb: num('cfg-weight-bb')
-      },
+      weights: { ma: num('cfg-weight-ma'), macd: num('cfg-weight-macd'), rsi: num('cfg-weight-rsi'), adx: num('cfg-weight-adx'), bb: num('cfg-weight-bb') },
       strongBuyThreshold: num('cfg-strongbuy-threshold'),
       analystStrongBuyThreshold: floatNum('cfg-analyst-strongbuy'),
       analystMinGrade: select('cfg-analyst-min-grade'),
       allowAnalystNA: bool('cfg-allow-analyst-na'),
-      hardGates: {
-        ma50: bool('gate-ma50'), ma200: bool('gate-ma200'),
-        macd: bool('gate-macd'), adx: bool('gate-adx'),
-        di: bool('gate-di'), adxMin: num('gate-adx-value')
-      },
-      maPoints: {
-        ma20: num('cfg-ma20'), ma50: num('cfg-ma50'), ma200: num('cfg-ma200')
-      },
-      macdPoints: {
-        signal: num('cfg-macd-signal'), zero: num('cfg-macd-zero'), hist: num('cfg-macd-hist')
-      },
+      hardGates: { ma50: bool('gate-ma50'), ma200: bool('gate-ma200'), macd: bool('gate-macd'), adx: bool('gate-adx'), di: bool('gate-di'), adxMin: num('gate-adx-value') },
+      maPoints: { ma20: num('cfg-ma20'), ma50: num('cfg-ma50'), ma200: num('cfg-ma200') },
+      macdPoints: { signal: num('cfg-macd-signal'), zero: num('cfg-macd-zero'), hist: num('cfg-macd-hist') },
       rsiBands: readBands('rsiBands', currentCfg.rsiBands),
       adxBands: readBands('adxBands', currentCfg.adxBands),
       bbBands: readBands('bbBands', currentCfg.bbBands)
