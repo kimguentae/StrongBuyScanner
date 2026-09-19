@@ -26,11 +26,14 @@ module.exports = async (req, res) => {
 
   // === URL query에서 config 읽기 (body 파싱 문제 회피) ===
   try {
+    console.log('[scanner DEBUG] req.url:', req.url);
+    console.log('[scanner DEBUG] req.headers.host:', req.headers.host);
     const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
     force = url.searchParams.get('force') === '1';
     const cfgParam = url.searchParams.get('config');
     if (cfgParam) {
-      clientConfig = JSON.parse(decodeURIComponent(cfgParam));
+      clientConfig = JSON.parse(cfgParam);
+      console.log('[scanner DEBUG] clientConfig 파싱 성공');
     }
   } catch (e) {
     console.warn('[scanner] query parse error:', e.message);
