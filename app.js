@@ -1012,19 +1012,22 @@ const Settings = {
   },
 
   save() {
-    const cfg = this.readFromUI();
-    const errors = this.validate(cfg);
-    if (errors.length) {
-      App.alert('설정 오류:\n' + errors.join('\n'), '⚠️ 확인이 필요해요');
-      return;
-    }
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cfg));
-    App.config = cfg;
-    App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
-    App.renderMain();
-    this.renderSummary();
-    App.alert('설정이 저장되었습니다.', '✅ 저장 완료');
-  },
+  const cfg = this.readFromUI();
+  const errors = this.validate(cfg);
+  if (errors.length) {
+    App.alert('설정 오류:\n' + errors.join('\n'), '⚠️ 확인이 필요해요');
+    return;
+  }
+  localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cfg));
+  App.config = cfg;
+  App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
+  App.renderMain();
+  this.renderSummary();
+  App.alert('설정이 저장되었습니다.\n새로고침 중...', '✅ 저장 완료');
+  
+  // 자동 재스캔 (서버에서 새로 계산)
+  setTimeout(() => App.loadData(true), 500);
+},
 
   async reset() {
     const ok = await App.confirm(
