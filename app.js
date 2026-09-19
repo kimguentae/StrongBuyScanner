@@ -255,7 +255,7 @@ const App = {
     const elapsed = now - this._lastRefresh;
     if (this._lastRefresh && elapsed < 60000) {
       const remain = Math.ceil((60000 - elapsed) / 1000);
-      App.alert(`너무 자주 새로고침했습니다.\n${remain}초 후 다시 시도하세요.`, '⏱️ 잠시만요');
+      App.alert(`너무 자주 새로고침했습니다.\n${remain}초 후 다시 시도하세요.`, '잠시만요');
       return;
     }
     this._lastRefresh = now;
@@ -471,7 +471,6 @@ const App = {
 
       overlay.innerHTML = `
         <div class="modal-box">
-          <div class="modal-icon ${type}">${iconMap[type] || icon}</div>
           <div class="modal-title">${this.escapeHtml(title || '')}</div>
           <div class="modal-message">${this.escapeHtml(message || '')}</div>
           <div class="modal-actions">
@@ -914,13 +913,13 @@ const Settings = {
     App.data = (App.data || []).map(d => App.recomputeAnalyst(d));
     App.renderMain();
     this.renderSummary();
-    App.alert('설정이 저장되었습니다.', '✅ 저장 완료');
+    App.alert('설정이 저장되었습니다.', '저장 완료');
   },
 
   async reset() {
     const ok = await App.confirm(
       '모든 설정을 기본값으로 복원하시겠습니까?',
-      '🔄 기본값 복원',
+      '기본값 복원',
       { type: 'warn', confirmText: '복원', cancelText: '취소' }
     );
     if (!ok) return;
