@@ -3,15 +3,14 @@
 // Rate limit 대응: 캐시 1시간, 동시성 2
 // ============================================================
 
-const { getMarketData }     = require('./providers/marketProvider');
-const { getTechnicalData }  = require('./providers/technicalProvider');
-const { getAnalystData }    = require('./providers/analystProvider');
-const { getNews }           = require('./providers/newsProvider');
-const { calcTechnicalScore, gradeFromScore } = require('./engine/technicalScore');
-const { checkHardGates, checkAnalystStrongBuy } = require('./engine/strongBuy');
-const { getUniverse }       = require('./universe');
-const { cacheGet, cacheSet } = require('./cache');
-
+const { getMarketData }     = require('../lib/providers/marketProvider');
+const { getTechnicalData }  = require('../lib/providers/technicalProvider');
+const { getAnalystData }    = require('../lib/providers/analystProvider');
+const { getNews }           = require('../lib/providers/newsProvider');
+const { calcTechnicalScore, gradeFromScore } = require('../lib/engine/technicalScore');
+const { checkHardGates, checkAnalystStrongBuy } = require('../lib/engine/strongBuy');
+const { getUniverse }       = require('../lib/universe');
+const { cacheGet, cacheSet } = require('../lib/cache');
 const CACHE_TTL = 60 * 60;      // 1시간
 const CONCURRENCY = 2;          // 동시성 2 (rate limit 여유)
 

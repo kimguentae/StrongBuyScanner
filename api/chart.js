@@ -3,9 +3,9 @@
 // GET /api/chart?symbol=005930&days=90
 // ============================================================
 
-const { getYahooChartData } = require('./providers/yahooProvider');
-const { getAllUniverse } = require('./universe');
-const { cacheGet, cacheSet } = require('./cache');
+const { getYahooChartData } = require('./lib/providers/yahooProvider');
+const { getAllUniverse } = require('./lib/universe');
+const { cacheGet, cacheSet } = require('./lib/cache');
 
 const CACHE_TTL = 30 * 60;  // 30분
 
