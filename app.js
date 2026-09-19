@@ -256,13 +256,9 @@ const App = {
   },
 
   recomputeAnalyst(d) {
-    // 서버 결과를 그대로 사용. 가중 평균만 클라이언트에서 계산 (표시용)
-    if (d.analystDetail) {
-      const w = analystWeightedAverage(d.analystDetail);
-      return { ...d, analystWeighted: w };
-    }
-    return d;
-  },
+  // 서버 결과 그대로 사용 (강등하지 않음)
+  return d;
+},
 
   refresh() {
     const now = Date.now();
