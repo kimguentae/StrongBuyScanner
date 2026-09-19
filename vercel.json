@@ -5,6 +5,7 @@
     }
   },
   "rewrites": [
+    { "source": "/api/chart", "destination": "/api/chart" },
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
 }

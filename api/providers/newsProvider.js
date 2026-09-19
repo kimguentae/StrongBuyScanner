@@ -1,39 +1,44 @@
 // ============================================================
-// newsProvider — Alpha Vantage NEWS_SENTIMENT
-// 뉴스는 Strong Buy 판정에 절대 반영하지 않음 (참고 전용)
-// 감성 분석 값(sentiment)도 사용하지 않음
+// newsProvider — Finnhub 뉴스 (미국 + 한국)
+// 무료 60 req/min, 한국 종목도 지원
 // ============================================================
 
-const ALPHA_BASE = 'https://www.alphavantage.co/query';
+const FINNHUB_BASE = 'https://finnhub.io/api/v1';
 
 async function getNews(stock) {
-  const key = process.env.ALPHA_VANTAGE_API_KEY;
+  const key = process.env.FINNHUB_API_KEY;
   if (!key) return [];
 
-  // 한국 종목은 Alpha Vantage가 커버하지 않을 수 있음
-  // ticker 형식 확인 필요: 미국은 "NVDA", 한국은 미지원 가능성 높음
-  const tickerParam = stock.country === 'US' ? stock.ticker : null;
-  if (!tickerParam) return [];
+  // 심볼 구성
+  let symbol;
+  if (stock.country === 'US') {
+    symbol = stock.ticker;
+  } else if (stock.country === 'KR') {
+    const suffix = stock.exchange === 'KOSDAQ' ? 'KQ' : 'KS';
+    symbol = `${stock.ticker}.${suffix}`;
+  } else {
+    return [];
+  }
 
-  const url = `${ALPHA_BASE}?function=NEWS_SENTIMENT&tickers=${tickerParam}&limit=10&apikey=${key}`;
+  // 최근 7일
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10);
+
+  const url = `${FINNHUB_BASE}/company-news?symbol=${encodeURIComponent(symbol)}&from=${from}&to=${to}&token=${key}`;
+
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Alpha Vantage HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`Finnhub news HTTP ${res.status}`);
 
-  const json = await res.json();
-  if (!json.feed || !Array.isArray(json.feed)) return [];
+  const arr = await res.json();
+  if (!Array.isArray(arr)) return [];
 
-  return json.feed.slice(0, 5).map(item => ({
-    title: item.title,
-    date: formatDate(item.time_published),
-    source: item.source || 'Unknown',
+  return arr.slice(0, 5).map(item => ({
+    title: item.headline,
+    date: new Date(item.datetime * 1000).toISOString().slice(0, 10).replace(/-/g, '.'),
+    source: item.source || 'Finnhub',
     url: item.url
-  }));
-}
-
-function formatDate(str) {
-  // "20260918T153000" → "2026.09.18"
-  if (!str || str.length < 8) return '';
-  return `${str.slice(0, 4)}.${str.slice(4, 6)}.${str.slice(6, 8)}`;
+  })).filter(n => n.title && n.url);
 }
 
 module.exports = { getNews };

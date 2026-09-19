@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>STRONG BUY SCANNER</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
   <div id="app">
 
-    <!-- ============ 메인 ============ -->
+    <!-- ========== 메인 ========== -->
     <div id="screen-main" class="screen active">
       <header class="main-header">
         <h1 class="app-title">STRONG BUY SCANNER</h1>
@@ -38,7 +39,7 @@
       </div>
     </div>
 
-    <!-- ============ 상세 ============ -->
+    <!-- ========== 상세 ========== -->
     <div id="screen-detail" class="screen">
       <div class="detail-header">
         <button class="back-btn" onclick="App.goBack()">← 뒤로</button>
@@ -64,10 +65,32 @@
           <span id="detailTechnicalGrade" class="indicator-value">—</span>
         </div>
         <div class="technical-score-big" id="detailTechnicalScore">— / 100</div>
+
+        <!-- 왜 사도 좋을지 요약 -->
+        <div class="why-summary" id="whySummary"></div>
       </div>
 
       <div class="detail-divider"></div>
 
+      <!-- ===== 캔들 차트 ===== -->
+      <div class="chart-section">
+        <div class="section-label">📈 PRICE CHART</div>
+        <div class="chart-controls">
+          <button data-days="30" onclick="App.loadChart(30)">1M</button>
+          <button data-days="90" class="active" onclick="App.loadChart(90)">3M</button>
+          <button data-days="180" onclick="App.loadChart(180)">6M</button>
+          <button data-days="365" onclick="App.loadChart(365)">1Y</button>
+        </div>
+        <div class="chart-toggles">
+          <label class="toggle-item"><input type="checkbox" id="toggleMA" checked onchange="App.applyChartToggles()"> 이동평균선 (MA)</label>
+          <label class="toggle-item"><input type="checkbox" id="toggleBB" onchange="App.applyChartToggles()"> 볼린저밴드</label>
+        </div>
+        <div id="priceChart" class="price-chart"></div>
+      </div>
+
+      <div class="detail-divider"></div>
+
+      <!-- ===== 지표 breakdown (접기) ===== -->
       <div id="detailBreakdown"></div>
 
       <div class="detail-divider"></div>
@@ -84,18 +107,16 @@
       </div>
     </div>
 
-    <!-- ============ 설정 ============ -->
+    <!-- ========== 설정 ========== -->
     <div id="screen-settings" class="screen">
       <div class="settings-header">
         <h2>설정</h2>
       </div>
 
-      <!-- 현재 설정 요약 -->
       <div class="settings-summary" id="settingsSummary"></div>
 
       <div class="settings-content">
 
-        <!-- 접기: Analyst -->
         <details class="settings-group" open>
           <summary class="group-summary">
             <span class="group-icon">📊</span>
@@ -122,7 +143,6 @@
                 <option value="BUY" selected>Buy 이상</option>
                 <option value="HOLD">Hold 이상</option>
               </select>
-              <div class="field-help">이 등급 이상인 종목만 메인에 표시됩니다.</div>
             </div>
 
             <div class="field">
@@ -135,7 +155,6 @@
           </div>
         </details>
 
-        <!-- 접기: Technical 배점 -->
         <details class="settings-group" open>
           <summary class="group-summary">
             <span class="group-icon">⚙️</span>
@@ -144,35 +163,13 @@
           </summary>
           <div class="group-body">
             <div class="field-row">
-              <div class="field-mini">
-                <label>MA</label>
-                <input type="number" id="cfg-weight-ma" value="30" min="0" max="100"
-                       oninput="Settings.updateTotalDisplay()">
-              </div>
-              <div class="field-mini">
-                <label>MACD</label>
-                <input type="number" id="cfg-weight-macd" value="20" min="0" max="100"
-                       oninput="Settings.updateTotalDisplay()">
-              </div>
-              <div class="field-mini">
-                <label>RSI</label>
-                <input type="number" id="cfg-weight-rsi" value="15" min="0" max="100"
-                       oninput="Settings.updateTotalDisplay()">
-              </div>
-              <div class="field-mini">
-                <label>ADX</label>
-                <input type="number" id="cfg-weight-adx" value="15" min="0" max="100"
-                       oninput="Settings.updateTotalDisplay()">
-              </div>
-              <div class="field-mini">
-                <label>BB</label>
-                <input type="number" id="cfg-weight-bb" value="20" min="0" max="100"
-                       oninput="Settings.updateTotalDisplay()">
-              </div>
+              <div class="field-mini"><label>MA</label><input type="number" id="cfg-weight-ma" value="30" min="0" max="100" oninput="Settings.updateTotalDisplay()"></div>
+              <div class="field-mini"><label>MACD</label><input type="number" id="cfg-weight-macd" value="20" min="0" max="100" oninput="Settings.updateTotalDisplay()"></div>
+              <div class="field-mini"><label>RSI</label><input type="number" id="cfg-weight-rsi" value="15" min="0" max="100" oninput="Settings.updateTotalDisplay()"></div>
+              <div class="field-mini"><label>ADX</label><input type="number" id="cfg-weight-adx" value="15" min="0" max="100" oninput="Settings.updateTotalDisplay()"></div>
+              <div class="field-mini"><label>BB</label><input type="number" id="cfg-weight-bb" value="20" min="0" max="100" oninput="Settings.updateTotalDisplay()"></div>
             </div>
-            <div class="total-display">
-              합계: <span id="cfg-weight-total">100</span> / 100
-            </div>
+            <div class="total-display">합계: <span id="cfg-weight-total">100</span> / 100</div>
 
             <div class="field">
               <label>Technical Strong Buy 기준</label>
@@ -181,12 +178,10 @@
                        oninput="document.getElementById('cfg-strongbuy-threshold-val').textContent=this.value">
                 <span class="range-value" id="cfg-strongbuy-threshold-val">80</span>
               </div>
-              <div class="field-help">이 점수 이상이면 Technical Strong Buy</div>
             </div>
           </div>
         </details>
 
-        <!-- 접기: Hard Gate -->
         <details class="settings-group" open>
           <summary class="group-summary">
             <span class="group-icon">🔒</span>
@@ -194,9 +189,6 @@
             <span class="group-toggle"></span>
           </summary>
           <div class="group-body">
-            <div class="field-help" style="margin-bottom:12px">
-              체크된 조건을 모두 만족해야 Technical Strong Buy로 인정됩니다.
-            </div>
             <div class="gate-list">
               <label class="gate-item"><input type="checkbox" id="gate-ma50" checked> 현재가 &gt; MA50</label>
               <label class="gate-item"><input type="checkbox" id="gate-ma200" checked> 현재가 &gt; MA200</label>
@@ -211,7 +203,6 @@
           </div>
         </details>
 
-        <!-- 접기: MA 세부 -->
         <details class="settings-group">
           <summary class="group-summary">
             <span class="group-icon">📈</span>
@@ -227,7 +218,6 @@
           </div>
         </details>
 
-        <!-- 접기: MACD 세부 -->
         <details class="settings-group">
           <summary class="group-summary">
             <span class="group-icon">📉</span>
@@ -243,40 +233,31 @@
           </div>
         </details>
 
-        <!-- 접기: RSI -->
         <details class="settings-group">
           <summary class="group-summary">
             <span class="group-icon">🔥</span>
             <span class="group-title">RSI 구간</span>
             <span class="group-toggle"></span>
           </summary>
-          <div class="group-body">
-            <div class="rsi-bands" id="rsiBands"></div>
-          </div>
+          <div class="group-body"><div class="rsi-bands" id="rsiBands"></div></div>
         </details>
 
-        <!-- 접기: ADX -->
         <details class="settings-group">
           <summary class="group-summary">
             <span class="group-icon">💪</span>
             <span class="group-title">ADX 구간</span>
             <span class="group-toggle"></span>
           </summary>
-          <div class="group-body">
-            <div class="adx-bands" id="adxBands"></div>
-          </div>
+          <div class="group-body"><div class="adx-bands" id="adxBands"></div></div>
         </details>
 
-        <!-- 접기: Bollinger -->
         <details class="settings-group">
           <summary class="group-summary">
             <span class="group-icon">📊</span>
             <span class="group-title">Bollinger 구간</span>
             <span class="group-toggle"></span>
           </summary>
-          <div class="group-body">
-            <div class="bb-bands" id="bbBands"></div>
-          </div>
+          <div class="group-body"><div class="bb-bands" id="bbBands"></div></div>
         </details>
 
       </div>
