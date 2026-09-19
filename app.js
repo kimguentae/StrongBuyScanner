@@ -6,7 +6,6 @@
 const DEFAULT_CONFIG = {
   weights: { ma: 30, macd: 20, rsi: 15, adx: 15, bb: 20 },
   strongBuyThreshold: 80,
-  analystStrongBuyThreshold: 4.5,
   analystMinGrade: 'BUY',
   allowAnalystNA: true,
   hardGates: { ma50: true, ma200: true, macd: true, adx: true, di: true, adxMin: 20 },
@@ -1038,7 +1037,6 @@ const Settings = {
     const macdSum = cfg.macdPoints.signal + cfg.macdPoints.zero + cfg.macdPoints.hist;
     if (macdSum !== cfg.weights.macd) errors.push(`MACD 세부 점수 합(${macdSum})이 MACD 배점(${cfg.weights.macd})과 다릅니다.`);
     if (cfg.strongBuyThreshold < 0 || cfg.strongBuyThreshold > 100) errors.push('Technical Strong Buy 기준은 0~100.');
-    if (cfg.analystStrongBuyThreshold < 1 || cfg.analystStrongBuyThreshold > 5) errors.push('Analyst 임계값은 1~5.');
     const rsiErr = this.checkBandOverlap(cfg.rsiBands, 'RSI'); if (rsiErr) errors.push(rsiErr);
     const adxErr = this.checkBandOverlap(cfg.adxBands, 'ADX'); if (adxErr) errors.push(adxErr);
     const bbErr = this.checkBandOverlap(cfg.bbBands, 'Bollinger'); if (bbErr) errors.push(bbErr);
@@ -1067,10 +1065,7 @@ const Settings = {
     sbT.value = c.strongBuyThreshold;
     document.getElementById('cfg-strongbuy-threshold-val').textContent = c.strongBuyThreshold;
 
-    const aT = document.getElementById('cfg-analyst-strongbuy');
-    aT.value = c.analystStrongBuyThreshold ?? 4.5;
-    document.getElementById('cfg-analyst-strongbuy-val').textContent = aT.value;
-
+  
     document.getElementById('cfg-analyst-min-grade').value = c.analystMinGrade || 'BUY';
     document.getElementById('cfg-allow-analyst-na').checked = !!c.allowAnalystNA;
 
@@ -1106,7 +1101,6 @@ const Settings = {
       <div class="settings-summary-title">현재 설정</div>
       <div class="settings-summary-grid">
         <div class="summary-item"><span class="label">Technical SB</span><span class="value green">${c.strongBuyThreshold}점+</span></div>
-        <div class="summary-item"><span class="label">Analyst 임계값</span><span class="value yellow">${c.analystStrongBuyThreshold}</span></div>
         <div class="summary-item"><span class="label">메인 최소등급</span><span class="value">${gradeLabel}</span></div>
         <div class="summary-item"><span class="label">N/A 허용</span><span class="value ${c.allowAnalystNA ? 'green' : ''}">${c.allowAnalystNA ? 'ON' : 'OFF'}</span></div>
       </div>`;
@@ -1172,7 +1166,6 @@ const Settings = {
     return {
       weights: { ma: num('cfg-weight-ma'), macd: num('cfg-weight-macd'), rsi: num('cfg-weight-rsi'), adx: num('cfg-weight-adx'), bb: num('cfg-weight-bb') },
       strongBuyThreshold: num('cfg-strongbuy-threshold'),
-      analystStrongBuyThreshold: floatNum('cfg-analyst-strongbuy'),
       analystMinGrade: select('cfg-analyst-min-grade'),
       allowAnalystNA: bool('cfg-allow-analyst-na'),
       hardGates: { ma50: bool('gate-ma50'), ma200: bool('gate-ma200'), macd: bool('gate-macd'), adx: bool('gate-adx'), di: bool('gate-di'), adxMin: num('gate-adx-value') },
