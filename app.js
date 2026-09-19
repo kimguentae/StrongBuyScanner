@@ -663,25 +663,43 @@ const App = {
     else { analystEl.textContent = this.gradeLabel(d.analyst); analystEl.className = 'indicator-value yellow'; }
 
     const detailEl = document.getElementById('detailAnalystDetail');
-    if (d.analystDetail && detailEl) {
-      const a = d.analystDetail;
-      const w = d.analystWeighted != null ? d.analystWeighted.toFixed(2) : '—';
-      if (a.strongBuy != null) {
-        detailEl.innerHTML = `
-          <div class="analyst-counts">
-            <span>Strong Buy ${a.strongBuy ?? 0}</span>
-            <span>Buy ${a.buy ?? 0}</span>
-            <span>Hold ${a.hold ?? 0}</span>
-            <span>Sell ${a.sell ?? 0}</span>
-            <span>Strong Sell ${a.strongSell ?? 0}</span>
-          </div>
-          <div class="analyst-weighted">가중 평균 ${w}</div>`;
-      } else if (a.score != null) {
-        detailEl.innerHTML = `
-          <div class="analyst-weighted">컨센서스 ${a.score} (${a.source || ''})</div>
-          ${a.targetPrice ? `<div class="analyst-weighted">목표주가 ${a.targetPrice.toLocaleString()}</div>` : ''}`;
-      } else detailEl.innerHTML = '';
-    } else if (detailEl) detailEl.innerHTML = '';
+if (d.analystDetail && detailEl) {
+  const a = d.analystDetail;
+
+  // Finnhub (개수 기반)
+  if (a.strongBuy != null) {
+    detailEl.innerHTML = `
+      <div class="analyst-counts">
+        <span>Strong Buy ${a.strongBuy ?? 0}</span>
+        <span>Buy ${a.buy ?? 0}</span>
+        <span>Hold ${a.hold ?? 0}</span>
+        <span>Sell ${a.sell ?? 0}</span>
+        <span>Strong Sell ${a.strongSell ?? 0}</span>
+      </div>`;
+
+  // 네이버 (score 기반) — 5칸 막대로 표시
+  } else if (a.score != null) {
+    const score = Math.max(1, Math.min(5, Number(a.score)));
+    const gradeLabels = ['', '적극매도', '매도', '중립', '매수', '적극매수'];
+    const gradeColors = ['', 'sell', 'sell', 'hold', 'buy', 'strong-buy'];
+    const label = gradeLabels[Math.round(score)];
+    const colorClass = gradeColors[Math.round(score)];
+
+    const bars = Array.from({ length: 5 }, (_, i) => {
+      const filled = i < score;
+      return `<div class="analyst-bar ${filled ? 'filled ' + colorClass : ''}"></div>`;
+    }).join('');
+
+    detailEl.innerHTML = `
+      <div class="analyst-bars-wrapper">
+        <div class="analyst-bars">${bars}</div>
+        <div class="analyst-label ${colorClass}">${label}</div>
+      </div>
+      ${a.targetPrice ? `<div class="analyst-target">목표주가 ${a.targetPrice.toLocaleString()}원</div>` : ''}`;
+  } else {
+    detailEl.innerHTML = '';
+  }
+} else if (detailEl) detailEl.innerHTML = '';
 
     const techEl = document.getElementById('detailTechnicalGrade');
     if (d.technical === 'STRONG_BUY') { techEl.textContent = '🟢 Strong Buy'; techEl.className = 'indicator-value green'; }

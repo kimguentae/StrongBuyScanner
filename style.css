@@ -2342,3 +2342,81 @@ select:focus-visible {
   letter-spacing: 0;
   opacity: 0.5;
 }
+
+/* ===== 네이버 컨센서스 막대 ===== */
+.analyst-bars-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.analyst-bars {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.analyst-bar {
+  flex: 1;
+  height: 10px;
+  background: var(--surface2);
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.analyst-bar.filled {
+  background: var(--text-dim);
+}
+
+/* 등급별 색상 */
+.analyst-bar.filled.sell {
+  background: var(--red);
+}
+
+.analyst-bar.filled.hold {
+  background: var(--yellow);
+}
+
+.analyst-bar.filled.buy {
+  background: var(--green);
+}
+
+.analyst-bar.filled.strong-buy {
+  background: var(--green);
+  box-shadow: 0 0 8px #00d68f66;
+}
+
+/* 등급 라벨 */
+.analyst-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  min-width: 60px;
+  text-align: right;
+  letter-spacing: 0.5px;
+}
+
+.analyst-label.sell {
+  color: var(--red);
+}
+
+.analyst-label.hold {
+  color: var(--yellow);
+}
+
+.analyst-label.buy {
+  color: var(--green);
+}
+
+.analyst-label.strong-buy {
+  color: var(--green);
+  text-shadow: 0 0 8px #00d68f66;
+}
+
+/* 목표주가 */
+.analyst-target {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
