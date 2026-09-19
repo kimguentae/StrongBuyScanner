@@ -1464,3 +1464,132 @@ select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ============================================================
+   v4: Don't Buy 섹션
+   ============================================================ */
+
+.dont-buy-section {
+  margin-top: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+}
+
+.dont-buy-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: all 0.15s;
+}
+
+.dont-buy-summary::-webkit-details-marker {
+  display: none;
+}
+
+.dont-buy-summary:hover {
+  background: var(--surface2);
+  border-color: var(--text-dim);
+}
+
+.dont-buy-icon {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.dont-buy-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.dont-buy-count {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface2);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.dont-buy-summary .group-toggle {
+  margin-left: auto;
+}
+
+.dont-buy-section[open] .group-toggle {
+  transform: rotate(-135deg);
+}
+
+.dont-buy-list {
+  margin-top: 8px;
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+
+.dont-buy-list:hover {
+  opacity: 1;
+}
+
+/* Don't Buy 종목은 살짝 흐리게 */
+.dont-buy-list .stock-item {
+  background: var(--surface);
+  border-color: var(--border);
+  opacity: 0.85;
+}
+
+.dont-buy-list .stock-item:hover {
+  opacity: 1;
+}
+
+/* 등급 뱃지 */
+.grade-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.grade-badge.grade-buy {
+  background: #00d68f22;
+  color: var(--green);
+}
+
+.grade-badge.grade-hold {
+  background: #ffaa0022;
+  color: var(--yellow);
+}
+
+.grade-badge.grade-sell {
+  background: #ff3d7122;
+  color: var(--red);
+}
+
+.grade-badge.grade-strong-sell {
+  background: #ff3d7144;
+  color: var(--red);
+}
+
+.grade-badge.grade-na {
+  background: var(--surface2);
+  color: var(--text-dim);
+}
+
+/* 점수 표시 (작게) */
+.stock-score-mini {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}

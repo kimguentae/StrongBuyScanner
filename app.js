@@ -293,8 +293,10 @@ const App = {
     return result;
   },
 
-  renderMain() {
+    renderMain() {
     const list = document.getElementById('strongBuyList');
+    const dontBuyList = document.getElementById('dontBuyList');
+    const dontBuySection = document.getElementById('dontBuySection');
     if (!list) return;
 
     const filtered = this.getFiltered();
@@ -302,11 +304,24 @@ const App = {
     const minRank = ANALYST_GRADE_RANK[minGrade] ?? 2;
     const allowNA = !!this.config.allowAnalystNA;
 
-    const strongBuys = filtered.filter(d => {
+    // Strong Buy 조건
+    const isStrongBuy = d => {
       if (d.technical !== 'STRONG_BUY') return false;
       if (allowNA && (!d.analyst || d.analyst === 'N/A')) return true;
       const rank = ANALYST_GRADE_RANK[d.analyst] ?? -1;
       return rank >= minRank;
+    };
+
+    const strongBuys = filtered.filter(isStrongBuy);
+    const dontBuys = filtered.filter(d => !isStrongBuy(d));
+
+    // Don't Buy 정렬: 등급 순 (BUY > HOLD > SELL > STRONG_SELL), 그 안에서 점수 내림차순
+    const gradeOrder = { BUY: 4, HOLD: 3, SELL: 2, STRONG_SELL: 1, 'N/A': 0 };
+    dontBuys.sort((a, b) => {
+      const ga = gradeOrder[a.technical] ?? 0;
+      const gb = gradeOrder[b.technical] ?? 0;
+      if (ga !== gb) return gb - ga;
+      return (b.technicalScore || 0) - (a.technicalScore || 0);
     });
 
     this.renderSummaryBar(strongBuys, filtered);
@@ -320,6 +335,7 @@ const App = {
       sectionLabel.textContent = label;
     }
 
+    // ===== Strong Buy 렌더 =====
     if (strongBuys.length === 0) {
       let msg = '조건을 만족하는 Strong Buy 종목이 없습니다.';
       if (this.filter === 'fav' && Storage.getFavorites().length === 0) {
@@ -328,31 +344,60 @@ const App = {
         msg = `"${this.search}"에 해당하는 종목이 없습니다.`;
       }
       list.innerHTML = `<div class="empty-state">${msg}</div>`;
-      return;
+    } else {
+      const favs = Storage.getFavorites();
+      list.innerHTML = strongBuys.map(d => this.renderStockItem(d, favs)).join('');
     }
 
-    const favs = Storage.getFavorites();
+    // ===== Don't Buy 렌더 =====
+    if (!dontBuyList || !dontBuySection) return;
 
-    list.innerHTML = strongBuys.map(d => {
-      const isFav = favs.includes(d.symbol);
-      const sbSince = Storage.getSBSince(d.symbol);
-      let sinceBadge = '';
-      if (sbSince && sbSince.days >= 2) {
-        sinceBadge = `<span class="stock-sb-badge">${sbSince.days}일째</span>`;
-      } else if (sbSince && sbSince.days === 1) {
-        sinceBadge = `<span class="stock-sb-badge new">NEW</span>`;
-      }
+    if (dontBuys.length === 0) {
+      dontBuySection.style.display = 'none';
+    } else {
+      dontBuySection.style.display = '';
+      const countEl = document.getElementById('dontBuyCount');
+      if (countEl) countEl.textContent = `${dontBuys.length}개`;
 
-      return `
-        <div class="stock-item" onclick="App.showDetail('${this.escapeAttr(d.symbol)}')">
-          <span class="stock-flag">${d.flag === 'US' ? '🇺🇸' : '🇰🇷'}</span>
-          <span class="stock-name">${this.escapeHtml(d.name)}${sinceBadge}</span>
-          <span class="stock-price">${d.price ? this.escapeHtml(d.price) : ''}</span>
-          <button class="stock-fav-btn ${isFav ? 'active' : ''}"
-                  onclick="event.stopPropagation(); App.toggleFavInline('${this.escapeAttr(d.symbol)}')"
-                  title="즐겨찾기">${isFav ? '★' : '☆'}</button>
-        </div>`;
-    }).join('');
+      const favs = Storage.getFavorites();
+      dontBuyList.innerHTML = dontBuys.map(d => this.renderStockItem(d, favs, true)).join('');
+    }
+  },
+
+  // 종목 아이템 렌더 헬퍼 (Strong Buy / Don't Buy 공용)
+  renderStockItem(d, favs, showGrade = false) {
+    const isFav = favs.includes(d.symbol);
+    const sbSince = Storage.getSBSince(d.symbol);
+    let sinceBadge = '';
+    if (sbSince && sbSince.days >= 2) {
+      sinceBadge = `<span class="stock-sb-badge">${sbSince.days}일째</span>`;
+    } else if (sbSince && sbSince.days === 1) {
+      sinceBadge = `<span class="stock-sb-badge new">NEW</span>`;
+    }
+
+    // 등급 뱃지 (Don't Buy에서만)
+    let gradeBadge = '';
+    if (showGrade && d.technical) {
+      const grade = d.technical.toLowerCase().replace('_', '-');
+      gradeBadge = `<span class="grade-badge grade-${grade}">${this.gradeLabel(d.technical)}</span>`;
+    }
+
+    // 점수 표시 (Don't Buy에서만)
+    const scoreMini = showGrade && d.technicalScore != null
+      ? `<span class="stock-score-mini">${Math.round(d.technicalScore)}</span>`
+      : '';
+
+    return `
+      <div class="stock-item" onclick="App.showDetail('${this.escapeAttr(d.symbol)}')">
+        <span class="stock-flag">${d.flag === 'US' ? '🇺🇸' : '🇰🇷'}</span>
+        <span class="stock-name">${this.escapeHtml(d.name)}${sinceBadge}</span>
+        ${gradeBadge}
+        ${scoreMini}
+        <span class="stock-price">${d.price ? this.escapeHtml(d.price) : ''}</span>
+        <button class="stock-fav-btn ${isFav ? 'active' : ''}"
+                onclick="event.stopPropagation(); App.toggleFavInline('${this.escapeAttr(d.symbol)}')"
+                title="즐겨찾기">${isFav ? '★' : '☆'}</button>
+      </div>`;
   },
 
   renderSummaryBar(strongBuys, filtered) {
