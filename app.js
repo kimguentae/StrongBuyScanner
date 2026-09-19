@@ -255,10 +255,16 @@ const App = {
     }
   },
 
-  recomputeAnalyst(d) {
-  // 서버 결과 그대로 사용 (강등하지 않음)
-  return d;
-},
+    recomputeAnalyst(d) {
+    // analyst 값을 대문자 형식으로 정규화 (강등 안 함)
+    if (d.analyst) {
+      d.analyst = String(d.analyst).toUpperCase().replace(/\s+/g, '_');
+    }
+    if (d.analystDetail) {
+      d.analystWeighted = analystWeightedAverage(d.analystDetail);
+    }
+    return d;
+  },
 
   refresh() {
     const now = Date.now();
