@@ -200,11 +200,12 @@ const App = {
     document.getElementById('errorBanner').classList.add('hidden');
 
     try {
-      const res = await fetch('/api/scanner', {
-        method: forceRefresh ? 'POST' : 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        body: forceRefresh ? JSON.stringify({ force: true, config: this.config }) : undefined
-      });
+      let url = '/api/scanner';
+if (forceRefresh) {
+  const cfgStr = encodeURIComponent(JSON.stringify(this.config));
+  url += `?force=1&config=${cfgStr}`;
+}
+const res = await fetch(url, { method: 'GET' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
