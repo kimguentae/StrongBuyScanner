@@ -2343,25 +2343,25 @@ select:focus-visible {
   opacity: 0.5;
 }
 
-/* ===== 네이버 컨센서스 막대 ===== */
+/* ===== Analyst 막대 (v2) ===== */
 .analyst-bars-wrapper {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .analyst-bars {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
 }
 
 .analyst-bar {
   flex: 1;
-  height: 10px;
+  height: 14px;
   background: var(--surface2);
-  border-radius: 3px;
+  border-radius: 2px;
   transition: all 0.2s;
 }
 
@@ -2369,49 +2369,86 @@ select:focus-visible {
   background: var(--text-dim);
 }
 
-/* 등급별 색상 */
-.analyst-bar.filled.sell {
-  background: var(--red);
-}
-
-.analyst-bar.filled.hold {
-  background: var(--yellow);
+.analyst-bar.filled.strong-buy {
+  background: var(--green);
+  box-shadow: 0 0 8px #00d68f88;
 }
 
 .analyst-bar.filled.buy {
   background: var(--green);
 }
 
-.analyst-bar.filled.strong-buy {
-  background: var(--green);
-  box-shadow: 0 0 8px #00d68f66;
+.analyst-bar.filled.hold {
+  background: var(--yellow);
 }
 
-/* 등급 라벨 */
-.analyst-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-dim);
-  min-width: 60px;
+.analyst-bar.filled.sell,
+.analyst-bar.filled.strong-sell {
+  background: var(--red);
+}
+
+/* 숫자 */
+.analyst-score-num {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
   text-align: right;
-  letter-spacing: 0.5px;
+  letter-spacing: -0.5px;
 }
 
-.analyst-label.sell {
-  color: var(--red);
+.analyst-score-num.strong-buy {
+  color: var(--green);
+  text-shadow: 0 0 10px #00d68f66;
 }
 
-.analyst-label.hold {
+.analyst-score-num.buy {
+  color: var(--green);
+}
+
+.analyst-score-num.hold {
   color: var(--yellow);
 }
 
-.analyst-label.buy {
+.analyst-score-num.sell,
+.analyst-score-num.strong-sell {
+  color: var(--red);
+}
+
+/* 등급 라벨 */
+.analyst-grade-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+.analyst-grade-label.strong-buy {
   color: var(--green);
 }
 
-.analyst-label.strong-buy {
+.analyst-grade-label.buy {
   color: var(--green);
-  text-shadow: 0 0 8px #00d68f66;
+}
+
+.analyst-grade-label.hold {
+  color: var(--yellow);
+}
+
+.analyst-grade-label.sell,
+.analyst-grade-label.strong-sell {
+  color: var(--red);
+}
+
+/* Finnhub 개수 (기존) */
+.analyst-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 8px;
 }
 
 /* 목표주가 */
