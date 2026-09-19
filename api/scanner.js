@@ -24,10 +24,12 @@ module.exports = async (req, res) => {
   }
 
   let force = false;
+  let clientConfig = null;
   if (req.method === 'POST') {
     try {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+            const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       force = body && body.force === true;
+      clientConfig = body && body.config ? body.config : null;
     } catch (e) { /* ignore */ }
   }
 
@@ -50,7 +52,8 @@ module.exports = async (req, res) => {
       });
     }
 
-    const results = await runWithConcurrency(universe, CONCURRENCY, analyzeOne);
+const results = await runWithConcurrency(universe, CONCURRENCY, 
+  (stock) => analyzeOne(stock, clientConfig));
 
     const payload = {
       results: results.filter(Boolean),
@@ -69,7 +72,7 @@ module.exports = async (req, res) => {
   }
 };
 
-async function analyzeOne(stock) {
+  const config = getConfigFromRequest();
   const base = {
     symbol: stock.ticker,
     name: stock.name,
@@ -94,7 +97,8 @@ async function analyzeOne(stock) {
     if (market) tech = await safe(() => getTechnicalData(market));
 
     if (tech) {
-      const config = getConfigFromRequest();
+      const config = getCon  const config = clientConfig || getConfigFromRequest();
+figFromRequest();
       const { score, breakdown } = calcTechnicalScore(tech, config);
       base.technicalScore = score;
       base.breakdown = breakdown;
