@@ -2213,3 +2213,103 @@ select:focus-visible {
     font-size: 10px;
   }
 }
+
+/* ============================================================
+   v6: 필터 텍스트 변경, 설정 헤더 액션
+   ============================================================ */
+
+/* ===== 즐겨찾기 필터 별만 ===== */
+.fav-filter {
+  flex: 0 0 auto;
+  min-width: 56px;
+  font-size: 18px;
+  padding: 10px 8px;
+}
+
+.fav-filter.active {
+  background: #ffaa0022;
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+/* ===== 설정 헤더 ===== */
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-top: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.settings-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.save-btn-small,
+.reset-btn-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--border);
+  padding: 0;
+}
+
+.save-btn-small {
+  background: var(--green-dim);
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.save-btn-small:hover {
+  background: var(--green);
+  color: #000;
+  transform: scale(1.05);
+}
+
+.save-btn-small:active {
+  transform: scale(0.95);
+}
+
+.reset-btn-small {
+  background: var(--surface2);
+  color: var(--text-dim);
+}
+
+.reset-btn-small:hover {
+  background: var(--surface);
+  color: var(--yellow);
+  border-color: var(--yellow);
+  transform: scale(1.05);
+}
+
+.reset-btn-small:active {
+  transform: scale(0.95);
+}
+
+/* 하단 settings-actions는 안 씀 (숨김) */
+.settings-actions {
+  display: none;
+}
+
+/* ===== sticky 헤더 취소 (기존 스타일 덮어쓰기) ===== */
+.settings-header {
+  position: static;
+  background: transparent;
+  z-index: auto;
+}
