@@ -1,6 +1,5 @@
 // ============================================================
 // /api/scanner — 메인 스캔 엔드포인트
-// 클라이언트 config 반영 (POST 요청 시)
 // ============================================================
 
 const { getMarketData }     = require('../lib/providers/marketProvider');
@@ -12,32 +11,42 @@ const { checkHardGates, checkAnalystStrongBuy } = require('../lib/engine/strongB
 const { getUniverse }       = require('../lib/universe');
 const { cacheGet, cacheSet } = require('../lib/cache');
 
-const CACHE_TTL = 60 * 60;   // 1시간
-const CONCURRENCY = 2;       // 동시성 2
+const CACHE_TTL = 60 * 60;
+const CONCURRENCY = 2;
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
 
   let force = false;
   let clientConfig = null;
 
-  if (req.method === 'POST') {// URL 쿼리에서 config 읽기 (Vercel body 파싱 문제 회피)
-try {
-  const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
-  force = url.searchParams.get('force') === '1';
-  const cfgParam = url.searchParams.get('config');
-  if (cfgParam) {
-    clientConfig = JSON.parse(decodeURIComponent(cfgParam));
+  // POST body 파싱 (Vercel에서 req.body가 없을 수 있음)
+  if (req.method === 'POST') {
+    try {
+      let body = req.body;
+      
+      if (typeof body === 'string') {
+        body = JSON.parse(body);
+      } else if (!body) {
+        const chunks = [];
+        for await (const chunk of req) {
+          chunks.push(chunk);
+        }
+        const raw = Buffer.concat(chunks).toString('utf-8');
+        if (raw) body = JSON.parse(raw);
+      }
+      
+      if (body) {
+        force = body.force === true;
+        clientConfig = body.config || null;
+      }
+    } catch (e) {
+      console.warn('[scanner] body parse error:', e.message);
+    }
   }
-} catch (e) {
-  console.warn('[scanner] query parse error:', e.message);
-}
 
   try {
     const cacheKey = 'scanner:all';
@@ -81,9 +90,6 @@ try {
   }
 };
 
-// ------------------------------------------------------------
-// 개별 종목 분석
-// ------------------------------------------------------------
 async function analyzeOne(stock, clientConfig) {
   const base = {
     symbol: stock.ticker,
@@ -98,13 +104,11 @@ async function analyzeOne(stock, clientConfig) {
   };
 
   try {
-    // 1) OHLCV
     const market = await safe(() => getMarketData(stock));
     if (market && market.price != null) {
       base.price = formatPrice(market.price, stock.country);
     }
 
-    // 2) 기술지표 (내부 계산)
     let tech = null;
     if (market) {
       tech = await safe(() => getTechnicalData(market));
@@ -128,7 +132,6 @@ async function analyzeOne(stock, clientConfig) {
       }
     }
 
-    // 3) Analyst
     const analyst = await safe(() => getAnalystData(stock));
     if (analyst && analyst.recommendation) {
       base.analyst = checkAnalystStrongBuy(analyst)
@@ -137,7 +140,6 @@ async function analyzeOne(stock, clientConfig) {
       base.analystDetail = analyst;
     }
 
-    // 4) 뉴스
     const news = await safe(() => getNews(stock));
     if (Array.isArray(news)) {
       base.news = news.slice(0, 5);
@@ -150,9 +152,6 @@ async function analyzeOne(stock, clientConfig) {
   }
 }
 
-// ------------------------------------------------------------
-// 유틸
-// ------------------------------------------------------------
 async function safe(fn) {
   try { return await fn(); } catch (e) {
     console.warn('[safe]', e.message);
