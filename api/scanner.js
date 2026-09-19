@@ -1,5 +1,6 @@
 // ============================================================
 // /api/scanner — 메인 스캔 엔드포인트
+// config는 URL query로 전달 (body 파싱 문제 회피)
 // ============================================================
 
 const { getMarketData }     = require('../lib/providers/marketProvider');
@@ -23,33 +24,25 @@ module.exports = async (req, res) => {
   let force = false;
   let clientConfig = null;
 
-  // POST body 파싱 (Vercel에서 req.body가 없을 수 있음)
-  if (req.method === 'POST') {
-    try {
-      let body = req.body;
-      
-      if (typeof body === 'string') {
-        body = JSON.parse(body);
-      } else if (!body) {
-        const chunks = [];
-        for await (const chunk of req) {
-          chunks.push(chunk);
-        }
-        const raw = Buffer.concat(chunks).toString('utf-8');
-        if (raw) body = JSON.parse(raw);
-      }
-      
-      if (body) {
-        force = body.force === true;
-        clientConfig = body.config || null;
-      }
-    } catch (e) {
-      console.warn('[scanner] body parse error:', e.message);
+  // === URL query에서 config 읽기 (body 파싱 문제 회피) ===
+  try {
+    const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
+    force = url.searchParams.get('force') === '1';
+    const cfgParam = url.searchParams.get('config');
+    if (cfgParam) {
+      clientConfig = JSON.parse(decodeURIComponent(cfgParam));
     }
+  } catch (e) {
+    console.warn('[scanner] query parse error:', e.message);
   }
 
   try {
-    const cacheKey = 'scanner:all';
+    // 캐시 키에 config 해시 포함 (설정 다르면 다른 캐시)
+    const cfgHash = clientConfig 
+      ? `${clientConfig.strongBuyThreshold}_${JSON.stringify(clientConfig.hardGates)}` 
+      : 'default';
+    const cacheKey = `scanner:${cfgHash}`;
+
     if (!force) {
       const cached = await cacheGet(cacheKey);
       if (cached) {
