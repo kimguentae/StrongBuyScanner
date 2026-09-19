@@ -106,15 +106,9 @@ async function analyzeOne(stock, clientConfig) {
       tech = await safe(() => getTechnicalData(market));
     }
 
-if (tech) {
-  const config = clientConfig || getConfigFromRequest();
-  console.log(`[${stock.ticker}] hardGates:`, JSON.stringify(config.hardGates));
-  console.log(`[${stock.ticker}] clientConfig 있음:`, !!clientConfig);
-  const { score, breakdown } = calcTechnicalScore(tech, config);if (tech) {
-  const config = clientConfig || getConfigFromRequest();
-  console.log(`[${stock.ticker}] hardGates:`, JSON.stringify(config.hardGates));
-  console.log(`[${stock.ticker}] clientConfig 있음:`, !!clientConfig);
-  const { score, breakdown } = calcTechnicalScore(tech, config);
+    if (tech) {
+      const config = clientConfig || getConfigFromRequest();
+      const { score, breakdown } = calcTechnicalScore(tech, config);
       base.technicalScore = score;
       base.breakdown = breakdown;
 
