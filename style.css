@@ -1,5 +1,6 @@
 /* ============================================================
-   STRONG BUY SCANNER — style.css (v8)
+   STRONG BUY SCANNER — style.css (v9)
+   Phase 5: 상세 화면 전면 개편 (점수 게이지 / 카드형 / 지지저항)
    ============================================================ */
 
 :root {
@@ -14,6 +15,7 @@
   --red:        #ff3d71;
   --red-dim:    #ff3d7122;
   --yellow:     #ffaa00;
+  --yellow-dim: #ffaa0022;
   --accent:     #6c5ce7;
   --nav-height: 60px;
 }
@@ -351,7 +353,7 @@ body {
   text-shadow: 0 0 8px #ffaa0066;
 }
 
-/* SB 뱃지 */
+/* SB 뱃지 (메인 리스트) */
 .stock-sb-badge {
   font-size: 10px;
   background: var(--green-dim);
@@ -517,9 +519,9 @@ body {
 .hidden { display: none !important; }
 
 /* ============================================================
-   상세 화면
+   상세 화면 — 헤더
    ============================================================ */
-.detail-header { margin-bottom: 20px; }
+.detail-header { margin-bottom: 16px; }
 
 .back-btn {
   display: inline-flex;
@@ -546,6 +548,8 @@ body {
   gap: 12px;
 }
 
+.detail-title-left { flex: 1; min-width: 0; }
+
 .detail-title {
   font-size: 22px;
   font-weight: 700;
@@ -559,13 +563,42 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.detail-title-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* SB 배지 (헤더, 별 옆) */
+.sb-since-badge { display: none; }
+.sb-since-badge:not(:empty) { display: block; }
+
+.sb-since-badge-inner {
+  display: inline-block;
+  background: var(--green-dim);
+  color: var(--green);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+  border: 1px solid #00d68f44;
+}
+
+.sb-since-badge-inner.new {
+  background: #ffaa0022;
+  color: var(--yellow);
+  border-color: #ffaa0044;
+}
+
 .fav-btn-detail {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 24px;
+  font-size: 22px;
   cursor: pointer;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: 10px;
   line-height: 1;
   transition: all 0.15s;
@@ -584,39 +617,225 @@ body {
   text-shadow: 0 0 8px #ffaa0066;
 }
 
-.detail-price {
-  font-size: 28px;
-  font-weight: 700;
-  margin: 20px 0;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.5px;
+/* ============================================================
+   가격 + 지지/저항 히어로
+   ============================================================ */
+.price-hero {
+  margin: 4px 0 20px;
 }
 
-.sb-since {
-  font-size: 13px;
-  color: var(--text-dim);
-  margin-bottom: 8px;
+.price-main {
+  font-size: 32px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.8px;
+  margin-bottom: 10px;
+}
+
+.support-resistance-row {
   display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sr-chip {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
 }
 
-.sb-since .badge {
-  background: var(--green-dim);
+.sr-chip .sr-icon {
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.sr-chip .sr-label {
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.sr-chip .sr-price {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.sr-chip .sr-dist {
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.sr-chip.sr-resistance {
+  border-color: #ff3d7144;
+  background: #ff3d7110;
+}
+.sr-chip.sr-resistance .sr-icon,
+.sr-chip.sr-resistance .sr-dist {
+  color: var(--red);
+}
+.sr-chip.sr-resistance .sr-dist { background: #ff3d7120; }
+
+.sr-chip.sr-support {
+  border-color: #00d68f44;
+  background: #00d68f10;
+}
+.sr-chip.sr-support .sr-icon,
+.sr-chip.sr-support .sr-dist {
   color: var(--green);
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-weight: 700;
-  font-size: 12px;
+}
+.sr-chip.sr-support .sr-dist { background: #00d68f20; }
+
+/* ============================================================
+   점수 카드 (Analyst / Technical) — 원형 게이지
+   ============================================================ */
+.score-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 20px 0;
 }
 
-.sb-since .new-badge {
-  background: #ffaa0022;
-  color: var(--yellow);
-  padding: 3px 10px;
-  border-radius: 6px;
+.score-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.25s;
+}
+
+.score-card-label {
+  font-size: 11px;
   font-weight: 700;
-  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.score-ring-wrapper {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.score-ring .ring-bg {
+  fill: none;
+  stroke: var(--surface2);
+  stroke-width: 8;
+}
+
+.score-ring .ring-fill {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s;
+}
+
+.score-ring-value {
+  position: relative;
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  z-index: 1;
+}
+
+.score-grade-badge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* 등급별 컬러 */
+.score-card.grade-strong-buy { border-color: #00d68f66; box-shadow: 0 0 24px #00d68f22; }
+.score-card.grade-strong-buy .ring-fill { stroke: var(--green); filter: drop-shadow(0 0 6px #00d68f88); }
+.score-card.grade-strong-buy .score-ring-value { color: var(--green); }
+.score-card.grade-strong-buy .score-grade-badge { background: var(--green-dim); color: var(--green); }
+
+.score-card.grade-buy { border-color: #00d68f44; }
+.score-card.grade-buy .ring-fill { stroke: var(--green); }
+.score-card.grade-buy .score-ring-value { color: var(--green); }
+.score-card.grade-buy .score-grade-badge { background: var(--green-dim); color: var(--green); }
+
+.score-card.grade-hold { border-color: #ffaa0044; }
+.score-card.grade-hold .ring-fill { stroke: var(--yellow); }
+.score-card.grade-hold .score-ring-value { color: var(--yellow); }
+.score-card.grade-hold .score-grade-badge { background: var(--yellow-dim); color: var(--yellow); }
+
+.score-card.grade-sell { border-color: #ff3d7144; }
+.score-card.grade-sell .ring-fill { stroke: var(--red); }
+.score-card.grade-sell .score-ring-value { color: var(--red); }
+.score-card.grade-sell .score-grade-badge { background: var(--red-dim); color: var(--red); }
+
+.score-card.grade-strong-sell { border-color: #ff3d7166; }
+.score-card.grade-strong-sell .ring-fill { stroke: var(--red); filter: drop-shadow(0 0 6px #ff3d7188); }
+.score-card.grade-strong-sell .score-ring-value { color: var(--red); }
+.score-card.grade-strong-sell .score-grade-badge { background: #ff3d7133; color: var(--red); }
+
+.score-card.grade-na { border-color: var(--border); }
+.score-card.grade-na .ring-fill { stroke: var(--text-dim); }
+.score-card.grade-na .score-ring-value { color: var(--text-dim); }
+
+/* Analyst 카드 하단 카운트 */
+.analyst-detail-box {
+  width: 100%;
+  padding: 0;
+}
+
+.analyst-counts {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  width: 100%;
+}
+
+.analyst-counts b { color: var(--text); font-weight: 700; }
+
+.analyst-target {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .detail-divider {
@@ -626,143 +845,73 @@ body {
 }
 
 /* ============================================================
-   WHY STRONG BUY
+   WHY 카드 (5개 지표 요약)
    ============================================================ */
-.why-section { margin-bottom: 4px; }
+.why-section { margin: 8px 0 4px; }
 
-.analyst-row {
+.why-cards {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.indicator-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-}
-
-.indicator-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.indicator-value.green  { color: var(--green); }
-.indicator-value.red    { color: var(--red); }
-.indicator-value.yellow { color: var(--yellow); }
-
-.technical-score-big {
-  font-size: 36px;
-  font-weight: 800;
-  color: var(--green);
-  padding: 8px 0 4px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -1px;
-}
-
-.analyst-detail-box { padding: 8px 0; }
-
-/* ============================================================
-   Analyst 게이지 (미국+한국 통합)
-   ============================================================ */
-.analyst-bars-wrapper {
+.why-card {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 10px;
+  transition: all 0.15s;
 }
 
-.analyst-bars {
-  display: flex;
-  gap: 2px;
-  flex: 1;
+.why-card.tone-good { border-left-color: var(--green); }
+.why-card.tone-ok { border-left-color: #6c5ce7; }
+.why-card.tone-warn { border-left-color: var(--yellow); }
+.why-card.tone-bad { border-left-color: var(--red); }
+
+.why-card-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
 }
 
-.analyst-bar {
-  flex: 1;
-  height: 14px;
-  background: var(--surface2);
-  border-radius: 2px;
-  transition: all 0.2s;
-}
+.why-card-body { flex: 1; min-width: 0; }
 
-.analyst-bar.filled { background: var(--text-dim); }
-.analyst-bar.filled.strong-buy {
-  background: var(--green);
-  box-shadow: 0 0 8px #00d68f88;
-}
-.analyst-bar.filled.buy { background: var(--green); }
-.analyst-bar.filled.hold { background: var(--yellow); }
-.analyst-bar.filled.sell,
-.analyst-bar.filled.strong-sell { background: var(--red); }
-
-.analyst-score-num {
-  font-size: 18px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  min-width: 52px;
-  text-align: right;
-  letter-spacing: -0.5px;
-}
-
-.analyst-score-num.strong-buy { color: var(--green); text-shadow: 0 0 10px #00d68f66; }
-.analyst-score-num.buy { color: var(--green); }
-.analyst-score-num.hold { color: var(--yellow); }
-.analyst-score-num.sell,
-.analyst-score-num.strong-sell { color: var(--red); }
-
-.analyst-grade-label {
-  font-size: 12px;
-  font-weight: 700;
-  text-align: right;
-  margin-top: 4px;
-  letter-spacing: 1px;
-}
-
-.analyst-grade-label.strong-buy { color: var(--green); }
-.analyst-grade-label.buy { color: var(--green); }
-.analyst-grade-label.hold { color: var(--yellow); }
-.analyst-grade-label.sell,
-.analyst-grade-label.strong-sell { color: var(--red); }
-
-.analyst-counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.why-card-label {
   font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
   color: var(--text-dim);
-  margin-top: 8px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
 }
 
-.analyst-target {
-  font-size: 12px;
-  color: var(--text-dim);
-  margin-top: 6px;
-}
-
-/* ============================================================
-   WHY 요약 박스
-   ============================================================ */
-.why-summary {
-  background: linear-gradient(135deg, #1a1a2e 0%, #14141f 100%);
-  border-left: 3px solid var(--green);
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin-top: 16px;
+.why-card-desc {
   font-size: 14px;
-  line-height: 1.7;
+  font-weight: 600;
   color: var(--text);
+  line-height: 1.3;
 }
 
-.why-summary p { margin-bottom: 8px; }
-.why-summary p:last-child { margin-bottom: 0; }
-.why-summary .highlight { color: var(--green); font-weight: 600; }
-.why-summary .warn { color: var(--yellow); font-weight: 600; }
-.why-summary .bad { color: var(--red); font-weight: 600; }
+.why-card.tone-good .why-card-desc { color: var(--green); }
+.why-card.tone-warn .why-card-desc { color: var(--yellow); }
+.why-card.tone-bad .why-card-desc { color: var(--red); }
+
+.why-card-score {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  background: var(--surface2);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
 
 /* ============================================================
    캔들 차트
@@ -846,81 +995,165 @@ body {
 }
 
 /* ============================================================
-   지표 breakdown
+   정보 카드 (가격구조 / 거래량 공용)
    ============================================================ */
-.breakdown-item {
+.info-card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-card {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
   border-radius: 10px;
-  margin-bottom: 8px;
-  overflow: hidden;
-  transition: border-color 0.2s;
+  padding: 14px;
+  transition: all 0.15s;
 }
 
-.breakdown-item[open] { border-color: var(--surface2); }
+.info-card.tone-good { border-left-color: var(--green); }
+.info-card.tone-warn { border-left-color: var(--yellow); }
+.info-card.tone-bad { border-left-color: var(--red); }
+.info-card.tone-neutral { border-left-color: var(--border); }
+.info-card.tone-support { border-left-color: var(--green); }
+.info-card.tone-resistance { border-left-color: var(--red); }
 
-.breakdown-summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 14px;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.breakdown-summary::-webkit-details-marker { display: none; }
-.breakdown-summary:hover { background: var(--surface2); }
-
-.breakdown-name {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: var(--text);
-}
-
-.breakdown-name .kr {
-  font-weight: 400;
-  color: var(--text-dim);
-  font-size: 12px;
-  margin-left: 6px;
-}
-
-.breakdown-score {
-  font-size: 14px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.breakdown-body {
-  padding: 4px 14px 14px;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-}
-
-.condition-row {
+.info-card-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--text-dim);
-  padding: 4px 0;
+  margin-bottom: 6px;
 }
 
-.condition-check {
-  font-size: 14px;
+.info-card-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.info-card-label {
+  font-size: 11px;
   font-weight: 700;
-  width: 14px;
-  display: inline-block;
-  text-align: center;
-  flex-shrink: 0;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
 }
 
-.condition-check.pass { color: var(--green); }
-.condition-check.fail { color: var(--red); }
+.info-card-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
 
-.condition-value { color: var(--text); font-weight: 500; }
+.info-card.tone-good .info-card-value { color: var(--green); }
+.info-card.tone-warn .info-card-value { color: var(--yellow); }
+.info-card.tone-bad .info-card-value { color: var(--red); }
+
+.info-card-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.info-card-sub b { color: var(--text); font-weight: 700; }
+
+.info-card-dist {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-card.tone-support .info-card-dist { color: var(--green); }
+.info-card.tone-resistance .info-card-dist { color: var(--red); }
+
+.ps-mini-detail {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.info-card-breakout {
+  padding: 12px 14px;
+}
+
+/* ============================================================
+   거래량 바 게이지
+   ============================================================ */
+.vol-bar-wrap {
+  margin: 12px 0 8px;
+}
+
+.vol-bar {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  background: var(--surface2);
+  border-radius: 5px;
+  overflow: visible;
+}
+
+.vol-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--text-dim);
+}
+
+.vol-bar-fill.tone-good { background: linear-gradient(90deg, #00d68f88, var(--green)); }
+.vol-bar-fill.tone-warn { background: linear-gradient(90deg, #ffaa0088, var(--yellow)); }
+.vol-bar-fill.tone-bad { background: linear-gradient(90deg, #ff3d7188, var(--red)); }
+.vol-bar-fill.tone-neutral { background: var(--text-dim); }
+
+.vol-bar-marker {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.vol-bar-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.vol-bar-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.vol-bar-ratio {
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+.info-card.tone-good .vol-bar-ratio { color: var(--green); }
+.info-card.tone-warn .vol-bar-ratio { color: var(--yellow); }
+.info-card.tone-bad .vol-bar-ratio { color: var(--red); }
+
+.vol-bar-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
 
 /* ============================================================
    뉴스
@@ -1708,6 +1941,17 @@ body {
 
   .app-title { font-size: 24px; }
   .settings-summary-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* 데스크탑: 가격구조 카드 2열 */
+  .info-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .info-card-grid .info-card-breakout {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 400px) {
@@ -1716,6 +1960,11 @@ body {
   .summary-chip .num { font-size: 13px; }
   .stock-price { font-size: 12px; }
   .nav-btn span { font-size: 10px; }
+  .price-main { font-size: 28px; }
+  .score-ring-wrapper { width: 88px; height: 88px; }
+  .score-ring-value { font-size: 22px; }
+  .why-card-icon { font-size: 18px; width: 24px; }
+  .why-card-desc { font-size: 13px; }
 }
 
 /* ===== iOS PWA 대응 ===== */
@@ -1748,246 +1997,4 @@ input:focus-visible,
 select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-
-/* ============================================================
-   가격·차트 구조 + 거래량 (Phase 4)
-   ============================================================ */
-
-/* ===== 가격 구조 ===== */
-.price-structure-section,
-.volume-section {
-  margin: 16px 0;
-}
-
-.ps-block {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 8px;
-}
-
-.ps-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-
-.ps-value {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-
-.ps-value.trend-up {
-  color: var(--green);
-}
-
-.ps-value.trend-down {
-  color: var(--red);
-}
-
-.ps-value.trend-sideways {
-  color: var(--yellow);
-}
-
-.ps-sub {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.5;
-  margin-top: 4px;
-}
-
-.ps-detail {
-  font-size: 11px;
-  color: var(--text-dim);
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: var(--bg);
-  border-radius: 6px;
-  line-height: 1.6;
-  font-variant-numeric: tabular-nums;
-}
-
-.ps-strong {
-  color: var(--text);
-  font-weight: 700;
-}
-
-.ps-strength-major {
-  color: var(--green);
-  font-weight: 700;
-}
-
-.ps-strength-medium {
-  color: var(--yellow);
-  font-weight: 600;
-}
-
-.ps-strength-weak {
-  color: var(--text-dim);
-  font-weight: 500;
-}
-
-.ps-distance {
-  font-size: 12px;
-  margin-top: 6px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-.ps-distance.near-very {
-  color: var(--green);
-  font-weight: 700;
-}
-
-.ps-distance.near {
-  color: var(--green);
-  font-weight: 600;
-}
-
-.ps-distance.near-close {
-  color: var(--yellow);
-  font-weight: 600;
-}
-
-.ps-note {
-  font-size: 11px;
-  color: var(--text-dim);
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: var(--bg);
-  border-left: 2px solid var(--accent);
-  border-radius: 4px;
-  line-height: 1.5;
-}
-
-.ps-breakout {
-  border-left: 3px solid;
-}
-
-.ps-breakout.breakout-up {
-  border-left-color: var(--green);
-  background: var(--green-dim);
-}
-
-.ps-breakout.breakout-down {
-  border-left-color: var(--red);
-  background: var(--red-dim);
-}
-
-/* ===== 거래량 ===== */
-.vol-block {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 8px;
-}
-
-.vol-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  font-size: 13px;
-}
-
-.vol-row.vol-main {
-  border-top: 1px solid var(--border);
-  margin-top: 8px;
-  padding-top: 10px;
-}
-
-.vol-label {
-  color: var(--text-dim);
-  font-weight: 500;
-}
-
-.vol-value {
-  font-weight: 700;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
-.vol-value.vol-low {
-  color: var(--red);
-}
-
-.vol-value.vol-normal {
-  color: var(--text);
-}
-
-.vol-value.vol-high {
-  color: var(--yellow);
-}
-
-.vol-value.vol-surge {
-  color: var(--green);
-  text-shadow: 0 0 8px #00d68f44;
-}
-
-.vol-status {
-  text-align: center;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 8px;
-  background: var(--bg);
-}
-
-.vol-status.vol-low {
-  color: var(--red);
-}
-
-.vol-status.vol-normal {
-  color: var(--text-dim);
-}
-
-.vol-status.vol-high {
-  color: var(--yellow);
-}
-
-.vol-status.vol-surge {
-  color: var(--green);
-  background: var(--green-dim);
-}
-
-.vol-relation {
-  font-size: 15px;
-  font-weight: 700;
-  padding: 10px 0;
-}
-
-.vol-relation.rel-up-vol {
-  color: var(--green);
-}
-
-.vol-relation.rel-up-novol {
-  color: var(--yellow);
-}
-
-.vol-relation.rel-down-vol {
-  color: var(--red);
-}
-
-.vol-relation.rel-down-novol {
-  color: var(--text-dim);
-}
-
-.vol-relation.rel-neutral {
-  color: var(--text-dim);
-}
-
-.vol-relation-meaning {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.5;
-  margin-top: 4px;
 }

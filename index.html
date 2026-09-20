@@ -80,6 +80,8 @@
 
     <!-- ========== 상세 ========== -->
     <div id="screen-detail" class="screen">
+
+      <!-- 헤더 -->
       <div class="detail-header">
         <button class="back-btn" onclick="App.goBack()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -87,41 +89,62 @@
           </svg>
           <span>뒤로</span>
         </button>
+
         <div class="detail-title-row">
-          <div>
+          <div class="detail-title-left">
             <div class="detail-title" id="detailName"></div>
             <div class="detail-ticker" id="detailTicker"></div>
           </div>
-          <button class="fav-btn-detail" id="detailFavBtn" onclick="App.toggleFav()">☆</button>
+          <div class="detail-title-right">
+            <span class="sb-since-badge" id="sbSinceHeader"></span>
+            <button class="fav-btn-detail" id="detailFavBtn" onclick="App.toggleFav()">☆</button>
+          </div>
         </div>
       </div>
 
-      <div class="detail-price" id="detailPrice"></div>
-      <div class="sb-since" id="sbSince"></div>
+      <!-- 가격 + 지지/저항 -->
+      <div class="price-hero">
+        <div class="price-main" id="detailPrice"></div>
+        <div class="support-resistance-row" id="supportResistanceRow"></div>
+      </div>
 
-      <div class="detail-divider"></div>
+      <!-- 점수 카드 2개 (Analyst / Technical) -->
+      <div class="score-cards">
+        <div class="score-card" id="analystCard">
+          <div class="score-card-label">ANALYST</div>
+          <div class="score-ring-wrapper">
+            <svg class="score-ring" viewBox="0 0 100 100">
+              <circle class="ring-bg" cx="50" cy="50" r="42"></circle>
+              <circle class="ring-fill" id="analystRing" cx="50" cy="50" r="42"></circle>
+            </svg>
+            <div class="score-ring-value" id="analystScoreNum">—</div>
+          </div>
+          <div class="score-grade-badge" id="analystGradeBadge">—</div>
+          <div class="analyst-detail-box" id="detailAnalystDetail"></div>
+        </div>
 
+        <div class="score-card" id="technicalCard">
+          <div class="score-card-label">TECHNICAL</div>
+          <div class="score-ring-wrapper">
+            <svg class="score-ring" viewBox="0 0 100 100">
+              <circle class="ring-bg" cx="50" cy="50" r="42"></circle>
+              <circle class="ring-fill" id="technicalRing" cx="50" cy="50" r="42"></circle>
+            </svg>
+            <div class="score-ring-value" id="technicalScoreNum">—</div>
+          </div>
+          <div class="score-grade-badge" id="technicalGradeBadge">—</div>
+        </div>
+      </div>
+
+      <!-- WHY 요약 (카드형 5개) -->
       <div class="why-section">
-        <div class="section-label">WHY STRONG BUY?</div>
-
-        <div class="analyst-row">
-          <span class="indicator-label">ANALYST</span>
-          <span id="detailAnalyst" class="indicator-value">—</span>
-        </div>
-        <div id="detailAnalystDetail" class="analyst-detail-box"></div>
-
-        <div class="analyst-row">
-          <span class="indicator-label">TECHNICAL</span>
-          <span id="detailTechnicalGrade" class="indicator-value">—</span>
-        </div>
-        <div class="technical-score-big" id="detailTechnicalScore">— / 100</div>
-
-        <div class="why-summary" id="whySummary"></div>
+        <div class="section-label">📊 WHY STRONG BUY?</div>
+        <div class="why-cards" id="whyCards"></div>
       </div>
 
       <div class="detail-divider"></div>
 
-      <!-- 캔들 차트 -->
+      <!-- 차트 -->
       <div class="chart-section">
         <div class="section-label">📈 PRICE CHART</div>
         <div class="chart-controls">
@@ -144,18 +167,15 @@
 
       <div class="detail-divider"></div>
 
-      <!-- 기술지표 breakdown (기존) -->
-      <div id="detailBreakdown"></div>
-
-      <!-- 신규: 가격·차트 구조 -->
-      <div class="detail-divider"></div>
+      <!-- 가격 구조 -->
       <div class="price-structure-section">
         <div class="section-label">📉 가격·차트 구조</div>
         <div id="priceStructureContent"></div>
       </div>
 
-      <!-- 신규: 거래량 -->
       <div class="detail-divider"></div>
+
+      <!-- 거래량 -->
       <div class="volume-section">
         <div class="section-label">📊 거래량</div>
         <div id="volumeAnalysisContent"></div>
@@ -163,6 +183,7 @@
 
       <div class="detail-divider"></div>
 
+      <!-- 뉴스 -->
       <div class="news-section">
         <div class="section-label">📰 RECENT NEWS</div>
         <div id="newsList" class="news-list">
