@@ -1,6 +1,6 @@
 /* ============================================================
-   STRONG BUY SCANNER — style.css (v11)
-   Phase 7: 배지 통일 / 카드 요약 / 접힘 아코디언
+   STRONG BUY SCANNER — style.css (v12)
+   Phase 8: 테크니컬 요약 헤드 + 카드 한 줄 + 배지 통일
    ============================================================ */
 
 :root {
@@ -880,29 +880,34 @@ body {
   font-size: 9px;
 }
 
-/* Technical 카드 하단 요약 (한 줄) */
+/* Technical 카드 하단 요약 (한 줄 강제) */
 .tech-summary-box { width: 100%; padding: 0; }
 
 .tech-summary-line {
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   padding-top: 8px;
   margin-top: 4px;
   border-top: 1px solid var(--border);
   width: 100%;
+  overflow: hidden;
 }
 
 .tech-summary-item {
   font-size: 9px;
   font-weight: 700;
-  padding: 3px 6px;
+  padding: 3px 5px;
   border-radius: 5px;
   background: var(--surface2);
   color: var(--text-dim);
   white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tech-summary-item.tone-good { background: var(--green-dim); color: var(--green); }
@@ -916,17 +921,18 @@ body {
 }
 
 /* ============================================================
-   WHY STRONG BUY? — 내러티브
+   WHY STRONG BUY? — 헤드 카드 (애널리스트 / 테크니컬)
    ============================================================ */
 .why-section { margin: 8px 0 4px; }
 
 .why-narrative {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.why-analyst-head {
+/* 공용 헤드 카드 */
+.why-head-card {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -939,74 +945,40 @@ body {
   line-height: 1.5;
 }
 
-.why-analyst-head.tone-good {
+.why-head-card.tone-good {
   border-left-color: var(--green);
   background: linear-gradient(135deg, #00d68f12, #14141f);
 }
-.why-analyst-head.tone-warn {
+.why-head-card.tone-warn {
   border-left-color: var(--yellow);
   background: linear-gradient(135deg, #ffaa0012, #14141f);
 }
-.why-analyst-head.tone-bad {
+.why-head-card.tone-bad {
   border-left-color: var(--red);
   background: linear-gradient(135deg, #ff3d7112, #14141f);
 }
-.why-analyst-head.tone-neutral {
+.why-head-card.tone-neutral {
   border-left-color: var(--text-dim);
 }
 
-.why-analyst-icon {
+.why-head-icon {
   font-size: 20px;
   flex-shrink: 0;
 }
 
-.why-analyst-text {
+.why-head-text {
   color: var(--text);
   flex: 1;
 }
 
-.why-analyst-text b {
+.why-head-text b {
   font-weight: 800;
   font-size: 15px;
 }
 
-.why-analyst-head.tone-good .why-analyst-text b { color: var(--green); }
-.why-analyst-head.tone-warn .why-analyst-text b { color: var(--yellow); }
-.why-analyst-head.tone-bad .why-analyst-text b { color: var(--red); }
-
-.why-block {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
-}
-
-.why-block-title {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.why-block-body {
-  font-size: 14px;
-  line-height: 1.75;
-  color: var(--text);
-}
-
-.why-block-body b {
-  color: var(--green);
-  font-weight: 700;
-}
-
-.why-block-body b.tone-good { color: var(--green); }
-.why-block-body b.tone-warn { color: var(--yellow); }
-.why-block-body b.tone-bad { color: var(--red); }
-.why-block-body b.tone-neutral { color: var(--text); }
+.why-head-card.tone-good .why-head-text b { color: var(--green); }
+.why-head-card.tone-warn .why-head-text b { color: var(--yellow); }
+.why-head-card.tone-bad .why-head-text b { color: var(--red); }
 
 .why-disclaimer {
   font-size: 11px;
@@ -1155,7 +1127,7 @@ body {
   border-top: 1px solid var(--border);
 }
 
-/* ===== 정보 카드 (가격구조/거래량) ===== */
+/* ===== 정보 카드 ===== */
 .info-card-grid {
   display: flex;
   flex-direction: column;

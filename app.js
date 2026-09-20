@@ -1,6 +1,6 @@
 // ============================================================
-// STRONG BUY SCANNER — Frontend (app.js) v13
-// Phase 7: 카드 요약 / 배지 통일 / 접힘 아코디언
+// STRONG BUY SCANNER — Frontend (app.js) v14
+// Phase 8: 테크니컬 요약 헤드 + 배지 통일 + 접힘 아코디언
 // ============================================================
 
 const DEFAULT_CONFIG = {
@@ -723,13 +723,11 @@ const App = {
       grade: technicalGrade
     });
 
-    // Analyst 카드 하단 카운트 한 줄
     const detailEl = document.getElementById('detailAnalystDetail');
     if (detailEl) {
       detailEl.innerHTML = d.analystDetail ? this.renderAnalystCounts(d.analystDetail) : '';
     }
 
-    // Technical 카드 하단 요약 한 줄
     const techSummaryEl = document.getElementById('technicalSummary');
     if (techSummaryEl) {
       techSummaryEl.innerHTML = this.renderTechnicalSummary(d);
@@ -836,7 +834,7 @@ const App = {
   },
 
   // ------------------------------------------------------------
-  // Technical 카드 하단 요약 (추세 + 캔들 + 거래량 한 줄)
+  // Technical 카드 하단 요약 (한 줄)
   // ------------------------------------------------------------
   renderTechnicalSummary(d) {
     const parts = [];
@@ -886,7 +884,7 @@ const App = {
   },
 
   // ------------------------------------------------------------
-  // WHY 내러티브
+  // WHY 내러티브 (애널리스트 헤드 + 테크니컬 요약 헤드)
   // ------------------------------------------------------------
   renderWhyNarrative(d) {
     const el = document.getElementById('whyNarrative');
@@ -894,7 +892,7 @@ const App = {
 
     const parts = [];
 
-    // 1) 애널리스트 헤드 (최상단)
+    // ============ 1) 애널리스트 헤드 ============
     let analystBlock = '';
     if (d.analystWeighted != null && d.analystWeighted > 0) {
       const w = d.analystWeighted;
@@ -903,11 +901,8 @@ const App = {
       const gradeEn = this.gradeLabelEnglish(gradeKey);
 
       const toneClass = {
-        STRONG_BUY: 'good',
-        BUY: 'good',
-        HOLD: 'warn',
-        SELL: 'bad',
-        STRONG_SELL: 'bad'
+        STRONG_BUY: 'good', BUY: 'good', HOLD: 'warn',
+        SELL: 'bad', STRONG_SELL: 'bad'
       }[gradeKey] || 'neutral';
 
       const korNote = {
@@ -919,145 +914,137 @@ const App = {
       }[gradeKey] || '';
 
       analystBlock = `
-        <div class="why-analyst-head tone-${toneClass}">
-          <span class="why-analyst-icon">🧑‍💼</span>
-          <span class="why-analyst-text">
+        <div class="why-head-card tone-${toneClass}">
+          <span class="why-head-icon">🧑‍💼</span>
+          <span class="why-head-text">
             <b>애널리스트 ${score100}점</b>, ${gradeEn} — ${korNote}
           </span>
         </div>`;
     } else if (d.analyst === 'N/A') {
       analystBlock = `
-        <div class="why-analyst-head tone-neutral">
-          <span class="why-analyst-icon">🧑‍💼</span>
-          <span class="why-analyst-text">애널리스트 데이터 없음 — 기술적 분석만 반영</span>
+        <div class="why-head-card tone-neutral">
+          <span class="why-head-icon">🧑‍💼</span>
+          <span class="why-head-text">애널리스트 데이터 없음 — 기술적 분석만 반영</span>
         </div>`;
     }
     parts.push(analystBlock);
 
-    // 2) 가격 구조 요약
-    const ps = d.priceStructure;
-    if (ps && ps.status === 'ok') {
-      const sentences = [];
-
-      if (ps.trend && ps.trend.direction !== 'unknown') {
-        const trendEmoji = { up: '📈', down: '📉', sideways: '➡️' }[ps.trend.direction] || '';
-        const trendDesc = {
-          up: '상승 추세(Higher High + Higher Low)',
-          down: '하락 추세(Lower High + Lower Low)',
-          sideways: '횡보/혼조'
-        }[ps.trend.direction] || '';
-        sentences.push(`${trendEmoji} 현재 <b>${trendDesc}</b>예요.`);
-      }
-
-      if (ps.nearestSupport && ps.nearestResistance) {
-        const s = ps.nearestSupport;
-        const r = ps.nearestResistance;
-        sentences.push(
-          `주요 저항은 <b>${r.price}</b> (+${r.distancePct.toFixed(1)}%), 지지는 <b>${s.price}</b> (-${s.distancePct.toFixed(1)}%)에 있어요.`
-        );
-      }
-
-      if (ps.candlePattern && ps.candlePattern.pattern !== 'none') {
-        sentences.push(`최근 캔들은 <b>${ps.candlePattern.label}</b> — ${ps.candlePattern.meaning || ''}`);
-      }
-
-      if (ps.breakout && ps.breakout.type !== 'none') {
-        sentences.push(`⚡ <b>${ps.breakout.label}</b> 신호가 감지됐어요.`);
-      }
-
-      if (sentences.length) {
-        parts.push(`
-          <div class="why-block">
-            <div class="why-block-title">📉 가격 구조</div>
-            <div class="why-block-body">${sentences.join('<br>')}</div>
-          </div>`);
-      }
-    }
-
-    // 3) 보조지표 요약
-    const b = d.breakdown;
-    if (b) {
-      const sentences = [];
-
-      if (b.ma && b.ma.conditions) {
-        const pass = b.ma.conditions.filter(c => c.pass).length;
-        if (pass === 3) sentences.push('📈 이동평균선 3개 모두 위 — 완전한 상승 배열');
-        else if (pass === 2) sentences.push('📈 이평선 2/3 위 — 상승 우위');
-        else if (pass === 1) sentences.push('📉 이평선 1/3 위 — 추세 약함');
-        else sentences.push('📉 이평선 아래 — 하락 압력');
-      }
-
-      if (b.macd && b.macd.conditions) {
-        const pass = b.macd.conditions.filter(c => c.pass).length;
-        if (pass === 3) sentences.push('⚡ MACD 강한 상승 신호');
-        else if (pass >= 1) sentences.push('⚡ MACD 일부 긍정 신호');
-        else sentences.push('⚠️ MACD 약세');
-      }
-
-      if (b.rsi && b.rsi.value != null) {
-        const rsi = b.rsi.value;
-        let note = '';
-        if (rsi >= 55 && rsi <= 65) note = '건강한 상승 구간';
-        else if (rsi > 70) note = '과열 주의';
-        else if (rsi > 50) note = '완만한 상승';
-        else if (rsi >= 40) note = '중립';
-        else note = '약세';
-        sentences.push(`💪 RSI ${rsi.toFixed(1)} — ${note}`);
-      }
-
-      if (b.adx && b.adx.value != null) {
-        const adx = b.adx.value;
-        let note = '';
-        if (adx >= 25) note = '강한 추세 진행';
-        else if (adx >= 20) note = '추세 형성 중';
-        else note = '추세 약함';
-        sentences.push(`🎯 ADX ${adx.toFixed(1)} — ${note}`);
-      }
-
-      if (b.bb && b.bb.position != null) {
-        const pos = b.bb.position * 100;
-        let note = '';
-        if (pos >= 75 && pos <= 90) note = '상단 근처(강세)';
-        else if (pos > 90) note = '상단 돌파(과열)';
-        else if (pos >= 50) note = '중앙 위(안정)';
-        else if (pos >= 20) note = '하단 쪽(반등 여지)';
-        else note = '하단(약세)';
-        sentences.push(`📊 볼린저 ${pos.toFixed(0)}% — ${note}`);
-      }
-
-      if (sentences.length) {
-        parts.push(`
-          <div class="why-block">
-            <div class="why-block-title">📊 보조지표</div>
-            <div class="why-block-body">${sentences.join('<br>')}</div>
-          </div>`);
-      }
-    }
-
-    // 4) 거래량 요약
-    const vol = d.volumeAnalysis;
-    if (vol && vol.status === 'ok') {
-      const ratio = vol.volumeRatio || 1;
-      const toneClass = {
-        low: 'bad', normal: 'neutral', high: 'warn', surge: 'good'
-      }[vol.volumeStatus] || 'neutral';
-
-      const relNote = vol.priceVolumeRelation?.label || '';
-      const relMeaning = vol.priceVolumeRelation?.meaning || '';
-
+    // ============ 2) 테크니컬 요약 헤드 ============
+    const techSummary = this.buildTechnicalSummary(d);
+    if (techSummary) {
       parts.push(`
-        <div class="why-block">
-          <div class="why-block-title">📊 거래량</div>
-          <div class="why-block-body">
-            평균 대비 <b class="tone-${toneClass}">${ratio.toFixed(2)}배</b> (${this.escapeHtml(vol.volumeStatusLabel)})${vol.multiplier ? ` · ${vol.multiplier}` : ''}<br>
-            ${this.escapeHtml(relNote)}${relMeaning ? ` — ${this.escapeHtml(relMeaning)}` : ''}
-          </div>
+        <div class="why-head-card tone-${techSummary.tone}">
+          <span class="why-head-icon">📊</span>
+          <span class="why-head-text">
+            <b>테크니컬 ${techSummary.score != null ? techSummary.score + '점' : ''}</b>, ${techSummary.grade} — ${techSummary.note}
+          </span>
         </div>`);
     }
 
     parts.push(`<div class="why-disclaimer">※ 이 분석은 참고용이며, 투자 결정의 책임은 본인에게 있습니다.</div>`);
 
     el.innerHTML = parts.filter(Boolean).join('');
+  },
+
+  // ------------------------------------------------------------
+  // 테크니컬 요약 헤드용 문장 빌더
+  // ------------------------------------------------------------
+  buildTechnicalSummary(d) {
+    const score = d.technicalScore != null ? Math.round(d.technicalScore) : null;
+    const grade = this.gradeLabelEnglish(d.technical || 'N/A');
+
+    const gradeKey = String(d.technical || 'N/A').toUpperCase().replace(/\s+/g, '_');
+    const tone = {
+      STRONG_BUY: 'good',
+      BUY: 'good',
+      HOLD: 'warn',
+      SELL: 'bad',
+      STRONG_SELL: 'bad'
+    }[gradeKey] || 'neutral';
+
+    const reasons = [];
+
+    // ---- 1) 추세 ----
+    const ps = d.priceStructure;
+    if (ps && ps.status === 'ok' && ps.trend && ps.trend.direction !== 'unknown') {
+      const trendLabel = {
+        up: '상승 추세',
+        down: '하락 추세',
+        sideways: '횡보·혼조'
+      }[ps.trend.direction] || '';
+      if (trendLabel) reasons.push(trendLabel);
+    }
+
+    // ---- 2) 보조지표 통합 ----
+    const b = d.breakdown;
+    if (b) {
+      let bullCount = 0;
+      let bearCount = 0;
+
+      if (b.ma && b.ma.conditions) {
+        const p = b.ma.conditions.filter(c => c.pass).length;
+        if (p >= 2) bullCount++; else if (p === 0) bearCount++;
+      }
+      if (b.macd && b.macd.conditions) {
+        const p = b.macd.conditions.filter(c => c.pass).length;
+        if (p >= 2) bullCount++; else if (p === 0) bearCount++;
+      }
+      if (b.rsi && b.rsi.value != null) {
+        const rsi = b.rsi.value;
+        if (rsi >= 50 && rsi <= 70) bullCount++;
+        else if (rsi < 40) bearCount++;
+      }
+      if (b.adx) {
+        if (b.adx.value != null && b.adx.value >= 20) {
+          const diCond = (b.adx.conditions || []).find(c => c.label.includes('DI'));
+          if (diCond) { diCond.pass ? bullCount++ : bearCount++; }
+          else bullCount++;
+        }
+      }
+      if (b.bb && b.bb.position != null) {
+        const pos = b.bb.position;
+        if (pos >= 0.5 && pos <= 0.9) bullCount++;
+        else if (pos < 0.3) bearCount++;
+      }
+
+      let indicatorNote = '';
+      if (bullCount >= 4) indicatorNote = '보조지표 강한 상승 신호';
+      else if (bullCount >= 3) indicatorNote = '보조지표 상승 우위';
+      else if (bearCount >= 3) indicatorNote = '보조지표 약세';
+      else if (bearCount >= 2) indicatorNote = '보조지표 하락 압력';
+      else indicatorNote = '보조지표 혼조';
+
+      reasons.push(indicatorNote);
+    }
+
+    // ---- 3) 거래량 ----
+    const vol = d.volumeAnalysis;
+    if (vol && vol.status === 'ok') {
+      const relType = vol.priceVolumeRelation?.type;
+      let volNote = '';
+      switch (relType) {
+        case 'up_with_volume':      volNote = '거래량 증가 동반 상승'; break;
+        case 'up_without_volume':   volNote = '거래량 부족한 상승'; break;
+        case 'down_with_volume':    volNote = '매도 압력 우위'; break;
+        case 'down_without_volume': volNote = '거래량 줄어든 약한 하락'; break;
+        case 'neutral':             volNote = '거래량 평범'; break;
+        default:
+          if (vol.volumeStatus === 'surge') volNote = '거래량 급증';
+          else if (vol.volumeStatus === 'high') volNote = '거래량 증가';
+          else if (vol.volumeStatus === 'low') volNote = '거래량 감소';
+          else volNote = '거래량 평범';
+      }
+      if (volNote) reasons.push(volNote);
+    }
+
+    if (!reasons.length && score == null) return null;
+
+    return {
+      score,
+      grade,
+      tone,
+      note: reasons.length ? reasons.join(' · ') + '.' : ''
+    };
   },
 
   // ------------------------------------------------------------
