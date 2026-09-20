@@ -1,6 +1,6 @@
 /* ============================================================
-   STRONG BUY SCANNER — style.css (v12)
-   Phase 8: 테크니컬 요약 헤드 + 카드 한 줄 + 배지 통일
+   STRONG BUY SCANNER — style.css (v13)
+   Phase 9: 검색 토글 + WHY 헤드 간소화
    ============================================================ */
 
 :root {
@@ -94,7 +94,15 @@ body {
   flex: 1;
 }
 
-.refresh-btn {
+/* 헤더 우측 아이콘 그룹 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
   background: var(--surface2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -109,31 +117,56 @@ body {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.refresh-btn svg {
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.refresh-btn:hover {
+.icon-btn:hover {
   background: var(--surface);
   border-color: var(--green);
   color: var(--green);
 }
 
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
+/* 돋보기 버튼 active 상태 */
+.search-toggle-btn.active {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* 새로고침 버튼 회전 */
+.refresh-btn svg {
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .refresh-btn:hover svg { transform: rotate(180deg); }
 
 .refresh-btn:active {
-  transform: scale(0.92);
   background: var(--accent);
   border-color: var(--accent);
   color: white;
 }
 
 /* ============================================================
-   검색 바
+   검색 바 (돋보기 클릭 시 표시)
    ============================================================ */
 .search-bar {
   position: relative;
   margin: 12px 0 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-bar.hidden {
+  display: none;
+}
+
+.search-bar:not(.hidden) {
+  animation: searchSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes searchSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .search-bar .search-icon {
@@ -570,7 +603,7 @@ body {
   flex-shrink: 0;
 }
 
-/* SB 배지 (헤더) — 별 버튼과 완전히 동일 크기 */
+/* SB 배지 (헤더) */
 .sb-since-badge { display: none; }
 .sb-since-badge:not(:empty) { display: block; }
 
@@ -880,7 +913,7 @@ body {
   font-size: 9px;
 }
 
-/* Technical 카드 하단 요약 (한 줄 강제) */
+/* Technical 카드 하단 요약 (한 줄) */
 .tech-summary-box { width: 100%; padding: 0; }
 
 .tech-summary-line {
@@ -921,7 +954,7 @@ body {
 }
 
 /* ============================================================
-   WHY STRONG BUY? — 헤드 카드 (애널리스트 / 테크니컬)
+   WHY STRONG BUY? — 헤드 카드 (내용만)
    ============================================================ */
 .why-section { margin: 8px 0 4px; }
 
@@ -931,7 +964,6 @@ body {
   gap: 10px;
 }
 
-/* 공용 헤드 카드 */
 .why-head-card {
   display: flex;
   align-items: center;
@@ -941,7 +973,6 @@ body {
   background: linear-gradient(135deg, #1a1a2e, #14141f);
   border: 1px solid var(--border);
   border-left: 4px solid var(--border);
-  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -969,16 +1000,15 @@ body {
 .why-head-text {
   color: var(--text);
   flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
-.why-head-text b {
-  font-weight: 800;
-  font-size: 15px;
-}
-
-.why-head-card.tone-good .why-head-text b { color: var(--green); }
-.why-head-card.tone-warn .why-head-text b { color: var(--yellow); }
-.why-head-card.tone-bad .why-head-text b { color: var(--red); }
+.why-head-card.tone-good .why-head-text { color: var(--green); }
+.why-head-card.tone-warn .why-head-text { color: var(--yellow); }
+.why-head-card.tone-bad .why-head-text { color: var(--red); }
+.why-head-card.tone-neutral .why-head-text { color: var(--text); }
 
 .why-disclaimer {
   font-size: 11px;
@@ -1273,7 +1303,7 @@ body {
 }
 
 /* ============================================================
-   보조지표 아코디언 (아코디언 안)
+   보조지표 아코디언
    ============================================================ */
 .breakdown-item {
   background: var(--bg);

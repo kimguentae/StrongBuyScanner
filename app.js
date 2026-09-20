@@ -1,6 +1,6 @@
 // ============================================================
-// STRONG BUY SCANNER — Frontend (app.js) v14
-// Phase 8: 테크니컬 요약 헤드 + 배지 통일 + 접힘 아코디언
+// STRONG BUY SCANNER — Frontend (app.js) v15
+// Phase 9: 검색 토글 + WHY 헤드 간소화
 // ============================================================
 
 const DEFAULT_CONFIG = {
@@ -134,11 +134,41 @@ const App = {
   lastUpdated: null,
   loading: false,
   _lastRefresh: 0,
+  _searchOpen: false,
 
   init() {
     this.config = Settings.load();
     Settings.renderAll();
     this.loadData();
+  },
+
+  // ============================================================
+  // 검색 토글
+  // ============================================================
+  toggleSearch() {
+    const bar = document.getElementById('searchBar');
+    const btn = document.getElementById('searchToggleBtn');
+    if (!bar) return;
+
+    this._searchOpen = !this._searchOpen;
+
+    if (this._searchOpen) {
+      bar.classList.remove('hidden');
+      if (btn) btn.classList.add('active');
+      setTimeout(() => {
+        document.getElementById('searchInput')?.focus();
+      }, 100);
+    } else {
+      // 검색어가 있으면 유지, 없으면 닫기
+      const input = document.getElementById('searchInput');
+      if (input && input.value.trim()) {
+        input.focus();
+        this._searchOpen = true; // 다시 열린 상태 유지
+        return;
+      }
+      bar.classList.add('hidden');
+      if (btn) btn.classList.remove('active');
+    }
   },
 
   setFilter(f) {
@@ -162,6 +192,14 @@ const App = {
     if (input) input.value = '';
     const clearBtn = document.getElementById('clearSearchBtn');
     if (clearBtn) clearBtn.style.display = 'none';
+
+    // 검색바 닫기
+    const bar = document.getElementById('searchBar');
+    const btn = document.getElementById('searchToggleBtn');
+    if (bar) bar.classList.add('hidden');
+    if (btn) btn.classList.remove('active');
+    this._searchOpen = false;
+
     this.renderMain();
   },
 
@@ -884,7 +922,7 @@ const App = {
   },
 
   // ------------------------------------------------------------
-  // WHY 내러티브 (애널리스트 헤드 + 테크니컬 요약 헤드)
+  // WHY 내러티브 (간소화 - 점수/등급 제거)
   // ------------------------------------------------------------
   renderWhyNarrative(d) {
     const el = document.getElementById('whyNarrative');
@@ -892,13 +930,11 @@ const App = {
 
     const parts = [];
 
-    // ============ 1) 애널리스트 헤드 ============
+    // ============ 1) 애널리스트 헤드 (내용만) ============
     let analystBlock = '';
     if (d.analystWeighted != null && d.analystWeighted > 0) {
       const w = d.analystWeighted;
-      const score100 = this.weightedToScore100(w);
       const gradeKey = this.weightedToGradeKey(w);
-      const gradeEn = this.gradeLabelEnglish(gradeKey);
 
       const toneClass = {
         STRONG_BUY: 'good', BUY: 'good', HOLD: 'warn',
@@ -916,9 +952,7 @@ const App = {
       analystBlock = `
         <div class="why-head-card tone-${toneClass}">
           <span class="why-head-icon">🧑‍💼</span>
-          <span class="why-head-text">
-            <b>애널리스트 ${score100}점</b>, ${gradeEn} — ${korNote}
-          </span>
+          <span class="why-head-text">${korNote}</span>
         </div>`;
     } else if (d.analyst === 'N/A') {
       analystBlock = `
@@ -929,15 +963,13 @@ const App = {
     }
     parts.push(analystBlock);
 
-    // ============ 2) 테크니컬 요약 헤드 ============
+    // ============ 2) 테크니컬 요약 헤드 (내용만) ============
     const techSummary = this.buildTechnicalSummary(d);
-    if (techSummary) {
+    if (techSummary && techSummary.note) {
       parts.push(`
         <div class="why-head-card tone-${techSummary.tone}">
           <span class="why-head-icon">📊</span>
-          <span class="why-head-text">
-            <b>테크니컬 ${techSummary.score != null ? techSummary.score + '점' : ''}</b>, ${techSummary.grade} — ${techSummary.note}
-          </span>
+          <span class="why-head-text">${techSummary.note}</span>
         </div>`);
     }
 
@@ -947,7 +979,7 @@ const App = {
   },
 
   // ------------------------------------------------------------
-  // 테크니컬 요약 헤드용 문장 빌더
+  // 테크니컬 요약 문장 빌더
   // ------------------------------------------------------------
   buildTechnicalSummary(d) {
     const score = d.technicalScore != null ? Math.round(d.technicalScore) : null;
@@ -964,7 +996,7 @@ const App = {
 
     const reasons = [];
 
-    // ---- 1) 추세 ----
+    // 1) 추세
     const ps = d.priceStructure;
     if (ps && ps.status === 'ok' && ps.trend && ps.trend.direction !== 'unknown') {
       const trendLabel = {
@@ -975,7 +1007,7 @@ const App = {
       if (trendLabel) reasons.push(trendLabel);
     }
 
-    // ---- 2) 보조지표 통합 ----
+    // 2) 보조지표 통합
     const b = d.breakdown;
     if (b) {
       let bullCount = 0;
@@ -1017,7 +1049,7 @@ const App = {
       reasons.push(indicatorNote);
     }
 
-    // ---- 3) 거래량 ----
+    // 3) 거래량
     const vol = d.volumeAnalysis;
     if (vol && vol.status === 'ok') {
       const relType = vol.priceVolumeRelation?.type;
