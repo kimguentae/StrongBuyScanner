@@ -102,10 +102,10 @@
         </div>
       </div>
 
-      <!-- 가격 + 지지/저항 (좌우 배치) -->
+      <!-- 가격 + 지지/저항 (좌우) -->
       <div class="price-hero" id="priceHero"></div>
 
-      <!-- 점수 카드 2개 (Analyst / Technical) -->
+      <!-- 점수 카드 2개 -->
       <div class="score-cards">
         <div class="score-card" id="analystCard">
           <div class="score-card-label">ANALYST</div>
@@ -130,10 +130,11 @@
             <div class="score-ring-value" id="technicalScoreNum">—</div>
           </div>
           <div class="score-grade-badge" id="technicalGradeBadge">—</div>
+          <div class="tech-summary-box" id="technicalSummary"></div>
         </div>
       </div>
 
-      <!-- WHY STRONG BUY? (글 요약) -->
+      <!-- WHY STRONG BUY? -->
       <div class="why-section">
         <div class="section-label">📝 WHY STRONG BUY?</div>
         <div class="why-narrative" id="whyNarrative"></div>
@@ -164,10 +165,36 @@
 
       <div class="detail-divider"></div>
 
-      <!-- 보조지표 아코디언 (차트 아래) -->
-      <div class="indicators-section">
-        <div class="section-label">📊 보조지표 상세</div>
-        <div id="detailBreakdown"></div>
+      <!-- 접힘 아코디언: 가격구조 / 보조지표 / 거래량 -->
+      <div class="detail-accordions">
+
+        <details class="detail-accordion">
+          <summary class="detail-accordion-summary">
+            <span class="detail-accordion-icon">📉</span>
+            <span class="detail-accordion-title">가격 구조 상세</span>
+            <span class="group-toggle"></span>
+          </summary>
+          <div class="detail-accordion-body" id="accordionPriceStructure"></div>
+        </details>
+
+        <details class="detail-accordion">
+          <summary class="detail-accordion-summary">
+            <span class="detail-accordion-icon">📊</span>
+            <span class="detail-accordion-title">보조지표 상세</span>
+            <span class="group-toggle"></span>
+          </summary>
+          <div class="detail-accordion-body" id="detailBreakdown"></div>
+        </details>
+
+        <details class="detail-accordion">
+          <summary class="detail-accordion-summary">
+            <span class="detail-accordion-icon">📊</span>
+            <span class="detail-accordion-title">거래량 상세</span>
+            <span class="group-toggle"></span>
+          </summary>
+          <div class="detail-accordion-body" id="accordionVolume"></div>
+        </details>
+
       </div>
 
       <div class="detail-divider"></div>
