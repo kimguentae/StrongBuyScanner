@@ -1,10 +1,6 @@
 // ============================================================
-// STRONG BUY SCANNER — Frontend (app.js) v11
-// Phase 5: 상세 화면 UI 전면 개편
-//   - 점수 원형 게이지 (Analyst 0~100 통일)
-//   - 지지/저항 현재가 옆 표시
-//   - WHY 요약 카드형
-//   - 가격구조 / 거래량 카드형
+// STRONG BUY SCANNER — Frontend (app.js) v12
+// Phase 6: 상세 화면 WHY 내러티브 + 가격 좌우 배치
 // ============================================================
 
 const DEFAULT_CONFIG = {
@@ -610,19 +606,26 @@ const App = {
     // 기본 정보
     document.getElementById('detailName').textContent = d.name;
     document.getElementById('detailTicker').textContent = d.symbol;
-    document.getElementById('detailPrice').textContent = d.price || 'N/A';
 
     // 즐겨찾기 버튼
     this.updateFavButton(symbol);
 
-    // SB 배지 (헤더, 별 옆)
+    // SB 배지 (헤더, 별 옆) — 이모지 아래 영어
     const sbHeaderEl = document.getElementById('sbSinceHeader');
     const sbSince = Storage.getSBSince(symbol);
     if (sbSince && sbSince.days >= 1) {
       if (sbSince.days === 1) {
-        sbHeaderEl.innerHTML = `<span class="sb-since-badge-inner new">🆕 NEW</span>`;
+        sbHeaderEl.innerHTML = `
+          <span class="sb-since-badge-inner new">
+            <span class="sb-since-emoji">🆕</span>
+            <span class="sb-since-text">NEW</span>
+          </span>`;
       } else {
-        sbHeaderEl.innerHTML = `<span class="sb-since-badge-inner">🔥 ${sbSince.days}일째</span>`;
+        sbHeaderEl.innerHTML = `
+          <span class="sb-since-badge-inner">
+            <span class="sb-since-emoji">🔥</span>
+            <span class="sb-since-text">${sbSince.days} ${sbSince.days === 1 ? 'DAY' : 'DAYS'}</span>
+          </span>`;
       }
       sbHeaderEl.style.display = '';
     } else {
@@ -630,20 +633,17 @@ const App = {
       sbHeaderEl.style.display = 'none';
     }
 
-    // 지지/저항 (현재가 옆)
-    this.renderSupportResistance(d.priceStructure);
+    // 가격 + 지지/저항 (좌우)
+    this.renderPriceHero(d);
 
     // 점수 카드 (Analyst / Technical)
     this.renderScoreCards(d);
 
-    // WHY 카드
-    this.renderWhyCards(d);
+    // WHY 내러티브
+    this.renderWhyNarrative(d);
 
-    // 가격 구조
-    this.renderPriceStructure(d.priceStructure);
-
-    // 거래량
-    this.renderVolumeAnalysis(d.volumeAnalysis);
+    // 보조지표 아코디언
+    this.renderBreakdown(d.breakdown);
 
     // 뉴스
     this.renderNews(d.news);
@@ -655,51 +655,54 @@ const App = {
   },
 
   // ------------------------------------------------------------
-  // 지지/저항 (현재가 옆)
+  // 가격 + 지지/저항 (좌우 배치)
   // ------------------------------------------------------------
-  renderSupportResistance(ps) {
-    const el = document.getElementById('supportResistanceRow');
+  renderPriceHero(d) {
+    const el = document.getElementById('priceHero');
     if (!el) return;
 
-    if (!ps || ps.status !== 'ok') {
-      el.innerHTML = '';
-      return;
+    const price = d.price || 'N/A';
+    const ps = d.priceStructure;
+
+    let resistanceHtml = '';
+    let supportHtml = '';
+
+    if (ps && ps.status === 'ok') {
+      if (ps.nearestResistance) {
+        const r = ps.nearestResistance;
+        resistanceHtml = `
+          <div class="sr-line sr-resistance">
+            <span class="sr-arrow">↑</span>
+            <span class="sr-label">저항</span>
+            <span class="sr-price">${this.escapeHtml(String(r.price))}</span>
+            <span class="sr-pct">+${r.distancePct.toFixed(1)}%</span>
+          </div>`;
+      }
+      if (ps.nearestSupport) {
+        const s = ps.nearestSupport;
+        supportHtml = `
+          <div class="sr-line sr-support">
+            <span class="sr-arrow">↓</span>
+            <span class="sr-label">지지</span>
+            <span class="sr-price">${this.escapeHtml(String(s.price))}</span>
+            <span class="sr-pct">-${s.distancePct.toFixed(1)}%</span>
+          </div>`;
+      }
     }
 
-    const items = [];
-
-    if (ps.nearestResistance) {
-      const r = ps.nearestResistance;
-      items.push(`
-        <div class="sr-chip sr-resistance">
-          <span class="sr-icon">↑</span>
-          <span class="sr-label">저항</span>
-          <span class="sr-price">${this.escapeHtml(String(r.price))}</span>
-          <span class="sr-dist">+${r.distancePct.toFixed(1)}%</span>
-        </div>
-      `);
-    }
-
-    if (ps.nearestSupport) {
-      const s = ps.nearestSupport;
-      items.push(`
-        <div class="sr-chip sr-support">
-          <span class="sr-icon">↓</span>
-          <span class="sr-label">지지</span>
-          <span class="sr-price">${this.escapeHtml(String(s.price))}</span>
-          <span class="sr-dist">-${s.distancePct.toFixed(1)}%</span>
-        </div>
-      `);
-    }
-
-    el.innerHTML = items.join('');
+    el.innerHTML = `
+      <div class="price-main">${this.escapeHtml(price)}</div>
+      <div class="sr-stack">
+        ${resistanceHtml}
+        ${supportHtml}
+      </div>
+    `;
   },
 
   // ------------------------------------------------------------
   // 점수 카드 (Analyst / Technical 원형 게이지)
   // ------------------------------------------------------------
   renderScoreCards(d) {
-    // Analyst 0~100 환산 (등급 매핑)
     let analystScore100 = null;
     let analystGrade = d.analyst || 'N/A';
 
@@ -708,11 +711,9 @@ const App = {
       analystGrade = this.weightedToGradeKey(d.analystWeighted);
     }
 
-    // Technical
     const technicalScore100 = d.technicalScore != null ? Math.round(d.technicalScore) : null;
     const technicalGrade = d.technical || 'N/A';
 
-    // Analyst 카드
     this.updateScoreCard({
       cardEl: 'analystCard',
       ringEl: 'analystRing',
@@ -722,7 +723,6 @@ const App = {
       grade: analystGrade
     });
 
-    // Technical 카드
     this.updateScoreCard({
       cardEl: 'technicalCard',
       ringEl: 'technicalRing',
@@ -732,7 +732,6 @@ const App = {
       grade: technicalGrade
     });
 
-    // Analyst 상세 (게이지 아래 카운트)
     const detailEl = document.getElementById('detailAnalystDetail');
     if (detailEl) {
       detailEl.innerHTML = d.analystDetail ? this.renderAnalystCounts(d.analystDetail) : '';
@@ -746,15 +745,13 @@ const App = {
     const badge = document.getElementById(badgeEl);
     if (!card || !ring || !num || !badge) return;
 
-    // 게이지 채우기
-    const circumference = 2 * Math.PI * 42; // r=42
+    const circumference = 2 * Math.PI * 42;
     const pct = score != null ? Math.max(0, Math.min(100, score)) : 0;
     const offset = circumference * (1 - pct / 100);
 
     ring.style.strokeDasharray = `${circumference}`;
     ring.style.strokeDashoffset = `${offset}`;
 
-    // 색상 클래스
     const gradeKey = String(grade || 'N/A').toUpperCase().replace(/\s+/g, '_');
     const colorClass = this.gradeColorClass(gradeKey);
     card.className = 'score-card ' + colorClass;
@@ -776,13 +773,12 @@ const App = {
     }
   },
 
-  // 0~100 환산 (구간 매핑)
   weightedToScore100(w) {
-    if (w >= 4.5) return 95;  // Strong Buy
-    if (w >= 3.5) return 80;  // Buy
-    if (w >= 2.5) return 60;  // Hold
-    if (w >= 1.5) return 40;  // Sell
-    return 20;                // Strong Sell
+    if (w >= 4.5) return 95;
+    if (w >= 3.5) return 80;
+    if (w >= 2.5) return 60;
+    if (w >= 1.5) return 40;
+    return 20;
   },
 
   weightedToGradeKey(w) {
@@ -818,7 +814,6 @@ const App = {
   renderAnalystCounts(a) {
     if (!a) return '';
 
-    // 카운트 (미국)
     if (a.strongBuy != null) {
       return `
         <div class="analyst-counts">
@@ -832,7 +827,6 @@ const App = {
       `;
     }
 
-    // 한국 (score만 있음)
     if (a.targetPrice) {
       return `<div class="analyst-target">목표주가 ${Number(a.targetPrice).toLocaleString()}원</div>`;
     }
@@ -841,311 +835,217 @@ const App = {
   },
 
   // ------------------------------------------------------------
-  // WHY 카드 (5개 지표 간단 요약)
+  // WHY STRONG BUY? — 내러티브
   // ------------------------------------------------------------
-  renderWhyCards(d) {
-    const el = document.getElementById('whyCards');
+  renderWhyNarrative(d) {
+    const el = document.getElementById('whyNarrative');
     if (!el) return;
 
-    if (!d.breakdown) {
-      el.innerHTML = '<div class="empty-state">기술적 분석 데이터 없음</div>';
-      return;
-    }
+    const parts = [];
 
-    const b = d.breakdown;
-    const cards = [];
-
-    // MA
-    if (b.ma && b.ma.conditions) {
-      const passCount = b.ma.conditions.filter(c => c.pass).length;
-      let icon, label, desc, tone;
-      if (passCount === 3) { icon = '📈'; tone = 'good'; desc = '3/3 이평선 위'; }
-      else if (passCount === 2) { icon = '📈'; tone = 'ok'; desc = '2/3 이평선 위'; }
-      else if (passCount === 1) { icon = '📉'; tone = 'warn'; desc = '1/3 이평선 위'; }
-      else { icon = '📉'; tone = 'bad'; desc = '이평선 아래'; }
-      label = 'MA';
-      cards.push(this.whyCard(icon, label, desc, `${b.ma.score}/${b.ma.max}`, tone));
-    }
-
-    // MACD
-    if (b.macd && b.macd.conditions) {
-      const passCount = b.macd.conditions.filter(c => c.pass).length;
-      let icon, desc, tone;
-      if (passCount === 3) { icon = '⚡'; tone = 'good'; desc = '강한 상승 신호'; }
-      else if (passCount >= 1) { icon = '⚡'; tone = 'ok'; desc = '일부 상승 신호'; }
-      else { icon = '⚠️'; tone = 'bad'; desc = '약세 신호'; }
-      cards.push(this.whyCard(icon, 'MACD', desc, `${b.macd.score}/${b.macd.max}`, tone));
-    }
-
-    // RSI
-    if (b.rsi && b.rsi.value != null) {
-      const rsi = b.rsi.value;
-      let icon, desc, tone;
-      if (rsi >= 55 && rsi <= 65) { icon = '💪'; tone = 'good'; desc = `${rsi.toFixed(1)} 건강`; }
-      else if (rsi > 70) { icon = '🔥'; tone = 'warn'; desc = `${rsi.toFixed(1)} 과열`; }
-      else if (rsi > 50) { icon = '💪'; tone = 'ok'; desc = `${rsi.toFixed(1)} 완만`; }
-      else if (rsi >= 40) { icon = '😐'; tone = 'ok'; desc = `${rsi.toFixed(1)} 중립`; }
-      else { icon = '📉'; tone = 'bad'; desc = `${rsi.toFixed(1)} 약세`; }
-      cards.push(this.whyCard(icon, 'RSI', desc, `${b.rsi.score}/${b.rsi.max}`, tone));
-    }
-
-    // ADX
-    if (b.adx && b.adx.value != null) {
-      const adx = b.adx.value;
-      let icon, desc, tone;
-      if (adx >= 25) { icon = '🎯'; tone = 'good'; desc = `${adx.toFixed(1)} 강한 추세`; }
-      else if (adx >= 20) { icon = '🎯'; tone = 'ok'; desc = `${adx.toFixed(1)} 추세 형성`; }
-      else { icon = '😐'; tone = 'warn'; desc = `${adx.toFixed(1)} 추세 약함`; }
-      cards.push(this.whyCard(icon, 'ADX', desc, `${b.adx.score}/${b.adx.max}`, tone));
-    }
-
-    // BB
-    if (b.bb && b.bb.position != null) {
-      const pos = b.bb.position * 100;
-      let icon, desc, tone;
-      if (pos >= 75 && pos <= 90) { icon = '📊'; tone = 'good'; desc = `${pos.toFixed(0)}% 상단 근처`; }
-      else if (pos > 90) { icon = '🔥'; tone = 'warn'; desc = `${pos.toFixed(0)}% 상단 돌파`; }
-      else if (pos >= 50) { icon = '📊'; tone = 'ok'; desc = `${pos.toFixed(0)}% 중앙 위`; }
-      else if (pos >= 20) { icon = '📊'; tone = 'ok'; desc = `${pos.toFixed(0)}% 하단 쪽`; }
-      else { icon = '📉'; tone = 'bad'; desc = `${pos.toFixed(0)}% 하단`; }
-      cards.push(this.whyCard(icon, 'BB', desc, `${b.bb.score}/${b.bb.max}`, tone));
-    }
-
-    // Analyst 추가 카드
+    // 1) 애널리스트 요약 (제일 위)
+    let analystBlock = '';
     if (d.analystWeighted != null && d.analystWeighted > 0) {
       const w = d.analystWeighted;
+      const score100 = this.weightedToScore100(w);
       const gradeKey = this.weightedToGradeKey(w);
-      const label = this.gradeLabelEnglish(gradeKey);
-      let tone = 'ok';
-      if (gradeKey === 'STRONG_BUY' || gradeKey === 'BUY') tone = 'good';
-      else if (gradeKey === 'SELL' || gradeKey === 'STRONG_SELL') tone = 'bad';
-      cards.push(this.whyCard('✅', 'Analyst', label, w.toFixed(2), tone));
+      const gradeEn = this.gradeLabelEnglish(gradeKey);
+
+      const toneClass = {
+        STRONG_BUY: 'good',
+        BUY: 'good',
+        HOLD: 'warn',
+        SELL: 'bad',
+        STRONG_SELL: 'bad'
+      }[gradeKey] || 'neutral';
+
+      const korNote = {
+        STRONG_BUY: '적극 매수 의견이 우세해요.',
+        BUY: '매수 의견이 우세해요.',
+        HOLD: '중립 의견이 많아요.',
+        SELL: '매도 의견이 우세해요.',
+        STRONG_SELL: '적극 매도 의견이 우세해요.'
+      }[gradeKey] || '';
+
+      analystBlock = `
+        <div class="why-analyst-head tone-${toneClass}">
+          <span class="why-analyst-icon">🧑‍💼</span>
+          <span class="why-analyst-text">
+            <b>애널리스트 ${score100}점</b>, ${gradeEn} — ${korNote}
+          </span>
+        </div>`;
     } else if (d.analyst === 'N/A') {
-      cards.push(this.whyCard('ℹ️', 'Analyst', '데이터 없음', 'N/A', 'warn'));
+      analystBlock = `
+        <div class="why-analyst-head tone-neutral">
+          <span class="why-analyst-icon">🧑‍💼</span>
+          <span class="why-analyst-text">애널리스트 데이터 없음 — 기술적 분석만 반영</span>
+        </div>`;
     }
+    parts.push(analystBlock);
 
-    el.innerHTML = cards.join('');
-  },
+    // 2) 가격 구조 요약
+    const ps = d.priceStructure;
+    if (ps && ps.status === 'ok') {
+      const sentences = [];
 
-  whyCard(icon, label, desc, score, tone) {
-    return `
-      <div class="why-card tone-${tone}">
-        <div class="why-card-icon">${icon}</div>
-        <div class="why-card-body">
-          <div class="why-card-label">${this.escapeHtml(label)}</div>
-          <div class="why-card-desc">${this.escapeHtml(desc)}</div>
-        </div>
-        <div class="why-card-score">${this.escapeHtml(score)}</div>
-      </div>
-    `;
-  },
-
-  // ------------------------------------------------------------
-  // 가격 구조 (카드형)
-  // ------------------------------------------------------------
-  renderPriceStructure(ps) {
-    const el = document.getElementById('priceStructureContent');
-    if (!el) return;
-
-    if (!ps || ps.status !== 'ok') {
-      el.innerHTML = `<div class="empty-state">${ps?.message || '가격·차트 구조 데이터 없음'}</div>`;
-      return;
-    }
-
-    const cards = [];
-
-    // 1) 추세
-    if (ps.trend) {
-      const trendClass = {
-        up: 'tone-good',
-        down: 'tone-bad',
-        sideways: 'tone-warn',
-        unknown: ''
-      }[ps.trend.direction] || '';
-
-      const trendIcon = {
-        up: '📈',
-        down: '📉',
-        sideways: '➡️'
-      }[ps.trend.direction] || '';
-
-      let detailHtml = '';
-      if (ps.trend.detail) {
-        const dd = ps.trend.detail;
-        detailHtml = `
-          <div class="ps-mini-detail">
-            고점 ${this.escapeHtml(String(dd.prevHigh))} → ${this.escapeHtml(String(dd.currHigh))}<br>
-            저점 ${this.escapeHtml(String(dd.prevLow))} → ${this.escapeHtml(String(dd.currLow))}
-          </div>`;
+      if (ps.trend && ps.trend.direction !== 'unknown') {
+        const trendEmoji = { up: '📈', down: '📉', sideways: '➡️' }[ps.trend.direction] || '';
+        const trendDesc = {
+          up: '상승 추세(Higher High + Higher Low)',
+          down: '하락 추세(Lower High + Lower Low)',
+          sideways: '횡보/혼조'
+        }[ps.trend.direction] || '';
+        sentences.push(`${trendEmoji} 현재 <b>${trendDesc}</b>예요.`);
       }
 
-      cards.push(`
-        <div class="info-card ${trendClass}">
-          <div class="info-card-head">
-            <span class="info-card-icon">${trendIcon}</span>
-            <span class="info-card-label">추세</span>
-          </div>
-          <div class="info-card-value">${this.escapeHtml(ps.trend.label || '—')}</div>
-          ${ps.trend.message ? `<div class="info-card-sub">${this.escapeHtml(ps.trend.message)}</div>` : ''}
-          ${detailHtml}
-        </div>
-      `);
+      if (ps.nearestSupport && ps.nearestResistance) {
+        const s = ps.nearestSupport;
+        const r = ps.nearestResistance;
+        sentences.push(
+          `주요 저항은 <b>${r.price}</b> (+${r.distancePct.toFixed(1)}%), 지지는 <b>${s.price}</b> (-${s.distancePct.toFixed(1)}%)에 있어요.`
+        );
+      }
+
+      if (ps.candlePattern && ps.candlePattern.pattern !== 'none') {
+        sentences.push(`최근 캔들은 <b>${ps.candlePattern.label}</b> — ${ps.candlePattern.meaning || ''}`);
+      }
+
+      if (ps.breakout && ps.breakout.type !== 'none') {
+        sentences.push(`⚡ <b>${ps.breakout.label}</b> 신호가 감지됐어요.`);
+      }
+
+      if (sentences.length) {
+        parts.push(`
+          <div class="why-block">
+            <div class="why-block-title">📉 가격 구조</div>
+            <div class="why-block-body">${sentences.join('<br>')}</div>
+          </div>`);
+      }
     }
 
-    // 2) 지지선
-    if (ps.nearestSupport) {
-      const s = ps.nearestSupport;
-      const strengthTone = s.strength === 'major' ? 'tone-good' : s.strength === 'medium' ? 'tone-warn' : '';
-      cards.push(`
-        <div class="info-card tone-support">
-          <div class="info-card-head">
-            <span class="info-card-icon">🟢</span>
-            <span class="info-card-label">지지선</span>
-          </div>
-          <div class="info-card-value">${this.escapeHtml(String(s.price))}</div>
-          <div class="info-card-sub">
-            테스트 <b>${s.testCount}회</b> · <span class="${strengthTone}">${this.escapeHtml(s.strengthLabel)}</span>
-          </div>
-          <div class="info-card-dist">현재가 -${s.distancePct.toFixed(2)}%</div>
-        </div>
-      `);
+    // 3) 보조지표 요약
+    const b = d.breakdown;
+    if (b) {
+      const sentences = [];
+
+      if (b.ma && b.ma.conditions) {
+        const pass = b.ma.conditions.filter(c => c.pass).length;
+        if (pass === 3) sentences.push('📈 이동평균선 3개 모두 위 — 완전한 상승 배열');
+        else if (pass === 2) sentences.push('📈 이평선 2/3 위 — 상승 우위');
+        else if (pass === 1) sentences.push('📉 이평선 1/3 위 — 추세 약함');
+        else sentences.push('📉 이평선 아래 — 하락 압력');
+      }
+
+      if (b.macd && b.macd.conditions) {
+        const pass = b.macd.conditions.filter(c => c.pass).length;
+        if (pass === 3) sentences.push('⚡ MACD 강한 상승 신호');
+        else if (pass >= 1) sentences.push('⚡ MACD 일부 긍정 신호');
+        else sentences.push('⚠️ MACD 약세');
+      }
+
+      if (b.rsi && b.rsi.value != null) {
+        const rsi = b.rsi.value;
+        let note = '';
+        if (rsi >= 55 && rsi <= 65) note = '건강한 상승 구간';
+        else if (rsi > 70) note = '과열 주의';
+        else if (rsi > 50) note = '완만한 상승';
+        else if (rsi >= 40) note = '중립';
+        else note = '약세';
+        sentences.push(`💪 RSI ${rsi.toFixed(1)} — ${note}`);
+      }
+
+      if (b.adx && b.adx.value != null) {
+        const adx = b.adx.value;
+        let note = '';
+        if (adx >= 25) note = '강한 추세 진행';
+        else if (adx >= 20) note = '추세 형성 중';
+        else note = '추세 약함';
+        sentences.push(`🎯 ADX ${adx.toFixed(1)} — ${note}`);
+      }
+
+      if (b.bb && b.bb.position != null) {
+        const pos = b.bb.position * 100;
+        let note = '';
+        if (pos >= 75 && pos <= 90) note = '상단 근처(강세)';
+        else if (pos > 90) note = '상단 돌파(과열)';
+        else if (pos >= 50) note = '중앙 위(안정)';
+        else if (pos >= 20) note = '하단 쪽(반등 여지)';
+        else note = '하단(약세)';
+        sentences.push(`📊 볼린저 ${pos.toFixed(0)}% — ${note}`);
+      }
+
+      if (sentences.length) {
+        parts.push(`
+          <div class="why-block">
+            <div class="why-block-title">📊 보조지표</div>
+            <div class="why-block-body">${sentences.join('<br>')}</div>
+          </div>`);
+      }
     }
 
-    // 3) 저항선
-    if (ps.nearestResistance) {
-      const r = ps.nearestResistance;
-      const strengthTone = r.strength === 'major' ? 'tone-good' : r.strength === 'medium' ? 'tone-warn' : '';
-      cards.push(`
-        <div class="info-card tone-resistance">
-          <div class="info-card-head">
-            <span class="info-card-icon">🔴</span>
-            <span class="info-card-label">저항선</span>
+    // 4) 거래량 요약
+    const vol = d.volumeAnalysis;
+    if (vol && vol.status === 'ok') {
+      const ratio = vol.volumeRatio || 1;
+      const toneClass = {
+        low: 'bad',
+        normal: 'neutral',
+        high: 'warn',
+        surge: 'good'
+      }[vol.volumeStatus] || 'neutral';
+
+      const relNote = vol.priceVolumeRelation?.label || '';
+      const relMeaning = vol.priceVolumeRelation?.meaning || '';
+
+      parts.push(`
+        <div class="why-block">
+          <div class="why-block-title">📊 거래량</div>
+          <div class="why-block-body">
+            평균 대비 <b class="tone-${toneClass}">${ratio.toFixed(2)}배</b> (${this.escapeHtml(vol.volumeStatusLabel)})${vol.multiplier ? ` · ${vol.multiplier}` : ''}<br>
+            ${this.escapeHtml(relNote)}${relMeaning ? ` — ${this.escapeHtml(relMeaning)}` : ''}
           </div>
-          <div class="info-card-value">${this.escapeHtml(String(r.price))}</div>
-          <div class="info-card-sub">
-            테스트 <b>${r.testCount}회</b> · <span class="${strengthTone}">${this.escapeHtml(r.strengthLabel)}</span>
-          </div>
-          <div class="info-card-dist">현재가 +${r.distancePct.toFixed(2)}%</div>
-        </div>
-      `);
+        </div>`);
     }
 
-    // 4) 캔들 패턴
-    if (ps.candlePattern && ps.candlePattern.pattern !== 'none') {
-      const candleIcon = {
-        marubozu_bull: '🕯️', marubozu_bear: '🕯️',
-        bullish_engulfing: '🕯️', bearish_engulfing: '🕯️',
-        hammer: '🔨', inverted_hammer: '🔨', doji: '➖'
-      }[ps.candlePattern.pattern] || '🕯️';
+    // 5) 하단 안내
+    parts.push(`<div class="why-disclaimer">※ 이 분석은 참고용이며, 투자 결정의 책임은 본인에게 있습니다.</div>`);
 
-      const candleTone = {
-        marubozu_bull: 'tone-good',
-        bullish_engulfing: 'tone-good',
-        hammer: 'tone-good',
-        marubozu_bear: 'tone-bad',
-        bearish_engulfing: 'tone-bad',
-        inverted_hammer: 'tone-warn',
-        doji: 'tone-warn'
-      }[ps.candlePattern.pattern] || '';
-
-      cards.push(`
-        <div class="info-card ${candleTone}">
-          <div class="info-card-head">
-            <span class="info-card-icon">${candleIcon}</span>
-            <span class="info-card-label">최근 캔들</span>
-          </div>
-          <div class="info-card-value">${this.escapeHtml(ps.candlePattern.label)}</div>
-          ${ps.candlePattern.meaning ? `<div class="info-card-sub">${this.escapeHtml(ps.candlePattern.meaning)}</div>` : ''}
-        </div>
-      `);
-    }
-
-    // 5) 돌파/이탈
-    if (ps.breakout && ps.breakout.type !== 'none') {
-      const isUp = ps.breakout.type === 'resistance_breakout';
-      cards.push(`
-        <div class="info-card ${isUp ? 'tone-good' : 'tone-bad'} info-card-breakout">
-          <div class="info-card-value">${this.escapeHtml(ps.breakout.label)}</div>
-          <div class="info-card-sub">종가 ${this.escapeHtml(String(ps.breakout.closePrice))}</div>
-        </div>
-      `);
-    }
-
-    el.innerHTML = cards.length
-      ? `<div class="info-card-grid">${cards.join('')}</div>`
-      : '<div class="empty-state">가격 구조 분석 데이터 부족</div>';
+    el.innerHTML = parts.filter(Boolean).join('');
   },
 
   // ------------------------------------------------------------
-  // 거래량 (카드 + 바 게이지)
+  // 보조지표 breakdown (아코디언)
   // ------------------------------------------------------------
-  renderVolumeAnalysis(vol) {
-    const el = document.getElementById('volumeAnalysisContent');
+  renderBreakdown(b) {
+    const el = document.getElementById('detailBreakdown');
     if (!el) return;
+    if (!b) { el.innerHTML = '<div class="empty-state">기술적 분석 데이터 없음</div>'; return; }
 
-    if (!vol || vol.status !== 'ok') {
-      el.innerHTML = `<div class="empty-state">${vol?.message || '거래량 분석 데이터 없음'}</div>`;
-      return;
-    }
+    const items = [];
+    const rowHtml = c => `<div class="condition-row">
+      <span class="condition-check ${c.pass ? 'pass' : 'fail'}">${c.pass ? '✓' : '✗'}</span>
+      <span>${this.escapeHtml(c.label)}</span>
+    </div>`;
 
-    // 거래량 비율 → 바 게이지 (0.5~3.0 매핑, 100% 기준)
-    const ratio = vol.volumeRatio || 1;
-    const barPct = Math.min(100, Math.max(0, (ratio / 3) * 100));
+    const wrap = (icon, name, kr, score, max, bodyHtml) => `
+      <details class="breakdown-item">
+        <summary class="breakdown-summary">
+          <span class="breakdown-name">${icon} ${name}<span class="kr">${kr}</span></span>
+          <span class="breakdown-score">${score} / ${max}</span>
+        </summary>
+        <div class="breakdown-body">${bodyHtml}</div>
+      </details>`;
 
-    const toneMap = {
-      low: 'tone-bad',
-      normal: 'tone-neutral',
-      high: 'tone-warn',
-      surge: 'tone-good'
-    };
-    const tone = toneMap[vol.volumeStatus] || 'tone-neutral';
+    if (b.ma) items.push(wrap('📈', 'MA', '(이동평균선)', b.ma.score, b.ma.max, (b.ma.conditions || []).map(rowHtml).join('')));
+    if (b.macd) items.push(wrap('⚡', 'MACD', '(추세 모멘텀)', b.macd.score, b.macd.max, (b.macd.conditions || []).map(rowHtml).join('')));
+    if (b.rsi) items.push(wrap('🔥', 'RSI', '(상대강도지수)', b.rsi.score, b.rsi.max,
+      `<div class="condition-row"><span>RSI <span class="condition-value">${b.rsi.value != null ? b.rsi.value.toFixed(1) : 'N/A'}</span></span></div>`));
+    if (b.adx) items.push(wrap('💪', 'ADX', '(추세 강도)', b.adx.score, b.adx.max,
+      `<div class="condition-row"><span>ADX <span class="condition-value">${b.adx.value != null ? b.adx.value.toFixed(1) : 'N/A'}</span></span></div>${(b.adx.conditions || []).map(rowHtml).join('')}`));
+    if (b.bb) items.push(wrap('📊', 'BOLLINGER', '(볼린저밴드)', b.bb.score, b.bb.max,
+      `<div class="condition-row"><span>밴드 내 위치 <span class="condition-value">${b.bb.position != null ? (b.bb.position * 100).toFixed(1) + '%' : 'N/A'}</span></span></div>`));
 
-    const relToneMap = {
-      up_with_volume: 'tone-good',
-      up_without_volume: 'tone-warn',
-      down_with_volume: 'tone-bad',
-      down_without_volume: 'tone-neutral',
-      neutral: 'tone-neutral'
-    };
-    const relTone = relToneMap[vol.priceVolumeRelation?.type] || 'tone-neutral';
-
-    el.innerHTML = `
-      <div class="info-card ${tone}">
-        <div class="info-card-head">
-          <span class="info-card-icon">📊</span>
-          <span class="info-card-label">거래량</span>
-        </div>
-        <div class="vol-bar-wrap">
-          <div class="vol-bar">
-            <div class="vol-bar-fill ${tone}" style="width:${barPct}%"></div>
-            <div class="vol-bar-marker" style="left:33.3%"></div>
-            <div class="vol-bar-marker" style="left:66.6%"></div>
-          </div>
-          <div class="vol-bar-scale">
-            <span>0.5x</span>
-            <span>1x</span>
-            <span>2x</span>
-            <span>3x</span>
-          </div>
-        </div>
-        <div class="vol-bar-main">
-          <span class="vol-bar-ratio">${ratio.toFixed(2)}x</span>
-          <span class="vol-bar-status">${this.escapeHtml(vol.volumeStatusLabel)}${vol.multiplier ? ` · ${this.escapeHtml(vol.multiplier)}` : ''}</span>
-        </div>
-        <div class="info-card-sub">
-          현재 ${this.formatNumber(vol.currentVolume)} · 평균 ${this.formatNumber(vol.volumeSMA20)}
-        </div>
-      </div>
-
-      <div class="info-card ${relTone}">
-        <div class="info-card-head">
-          <span class="info-card-icon">🔗</span>
-          <span class="info-card-label">가격-거래량 관계</span>
-        </div>
-        <div class="info-card-value">${this.escapeHtml(vol.priceVolumeRelation?.label || '—')}</div>
-        ${vol.priceVolumeRelation?.meaning ? `<div class="info-card-sub">${this.escapeHtml(vol.priceVolumeRelation.meaning)}</div>` : ''}
-      </div>
-    `;
+    el.innerHTML = items.length ? items.join('') : '<div class="empty-state">기술적 분석 데이터 없음</div>';
   },
 
   formatNumber(n) {

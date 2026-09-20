@@ -102,11 +102,8 @@
         </div>
       </div>
 
-      <!-- 가격 + 지지/저항 -->
-      <div class="price-hero">
-        <div class="price-main" id="detailPrice"></div>
-        <div class="support-resistance-row" id="supportResistanceRow"></div>
-      </div>
+      <!-- 가격 + 지지/저항 (좌우 배치) -->
+      <div class="price-hero" id="priceHero"></div>
 
       <!-- 점수 카드 2개 (Analyst / Technical) -->
       <div class="score-cards">
@@ -136,10 +133,10 @@
         </div>
       </div>
 
-      <!-- WHY 요약 (카드형 5개) -->
+      <!-- WHY STRONG BUY? (글 요약) -->
       <div class="why-section">
-        <div class="section-label">📊 WHY STRONG BUY?</div>
-        <div class="why-cards" id="whyCards"></div>
+        <div class="section-label">📝 WHY STRONG BUY?</div>
+        <div class="why-narrative" id="whyNarrative"></div>
       </div>
 
       <div class="detail-divider"></div>
@@ -167,18 +164,10 @@
 
       <div class="detail-divider"></div>
 
-      <!-- 가격 구조 -->
-      <div class="price-structure-section">
-        <div class="section-label">📉 가격·차트 구조</div>
-        <div id="priceStructureContent"></div>
-      </div>
-
-      <div class="detail-divider"></div>
-
-      <!-- 거래량 -->
-      <div class="volume-section">
-        <div class="section-label">📊 거래량</div>
-        <div id="volumeAnalysisContent"></div>
+      <!-- 보조지표 아코디언 (차트 아래) -->
+      <div class="indicators-section">
+        <div class="section-label">📊 보조지표 상세</div>
+        <div id="detailBreakdown"></div>
       </div>
 
       <div class="detail-divider"></div>

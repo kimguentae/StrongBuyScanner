@@ -1,6 +1,6 @@
 /* ============================================================
-   STRONG BUY SCANNER — style.css (v9)
-   Phase 5: 상세 화면 전면 개편 (점수 게이지 / 카드형 / 지지저항)
+   STRONG BUY SCANNER — style.css (v10)
+   Phase 6: 가격 좌우 배치 + WHY 내러티브 + 지표 위치 이동
    ============================================================ */
 
 :root {
@@ -570,39 +570,60 @@ body {
   flex-shrink: 0;
 }
 
-/* SB 배지 (헤더, 별 옆) */
+/* SB 배지 (헤더, 별 옆) — 별 버튼과 같은 높이 */
 .sb-since-badge { display: none; }
 .sb-since-badge:not(:empty) { display: block; }
 
 .sb-since-badge-inner {
-  display: inline-block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  min-height: 40px;
+  border-radius: 10px;
   background: var(--green-dim);
-  color: var(--green);
-  padding: 5px 10px;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: 12px;
-  white-space: nowrap;
   border: 1px solid #00d68f44;
+  line-height: 1.1;
+  gap: 1px;
+}
+
+.sb-since-badge-inner .sb-since-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.sb-since-badge-inner .sb-since-text {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  color: var(--green);
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .sb-since-badge-inner.new {
   background: #ffaa0022;
-  color: var(--yellow);
   border-color: #ffaa0044;
 }
+.sb-since-badge-inner.new .sb-since-text { color: var(--yellow); }
 
+/* 별 버튼 — 배지와 같은 높이 */
 .fav-btn-detail {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-dim);
   font-size: 22px;
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 4px 12px;
+  min-height: 40px;
   border-radius: 10px;
   line-height: 1;
   transition: all 0.15s;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .fav-btn-detail:hover {
@@ -618,81 +639,84 @@ body {
 }
 
 /* ============================================================
-   가격 + 지지/저항 히어로
+   가격 + 지지/저항 (좌우 배치)
    ============================================================ */
 .price-hero {
   margin: 4px 0 20px;
-}
-
-.price-main {
-  font-size: 32px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.8px;
-  margin-bottom: 10px;
-}
-
-.support-resistance-row {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.sr-chip {
-  display: inline-flex;
+.price-hero .price-main {
+  font-size: 34px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sr-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.sr-line {
+  display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 6px;
+  width: fit-content;
 }
 
-.sr-chip .sr-icon {
+.sr-line .sr-arrow {
+  font-weight: 900;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.sr-line .sr-label {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.sr-line .sr-price {
   font-weight: 800;
-  font-size: 13px;
-}
-
-.sr-chip .sr-label {
-  color: var(--text-dim);
-  font-weight: 500;
   font-size: 11px;
 }
 
-.sr-chip .sr-price {
-  color: var(--text);
+.sr-line .sr-pct {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
   font-weight: 700;
 }
 
-.sr-chip .sr-dist {
-  font-weight: 700;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 5px;
-}
-
-.sr-chip.sr-resistance {
-  border-color: #ff3d7144;
-  background: #ff3d7110;
-}
-.sr-chip.sr-resistance .sr-icon,
-.sr-chip.sr-resistance .sr-dist {
+.sr-line.sr-resistance {
   color: var(--red);
+  background: #ff3d7112;
+  border: 1px solid #ff3d7133;
 }
-.sr-chip.sr-resistance .sr-dist { background: #ff3d7120; }
+.sr-line.sr-resistance .sr-pct { background: #ff3d7125; }
 
-.sr-chip.sr-support {
-  border-color: #00d68f44;
-  background: #00d68f10;
-}
-.sr-chip.sr-support .sr-icon,
-.sr-chip.sr-support .sr-dist {
+.sr-line.sr-support {
   color: var(--green);
+  background: #00d68f12;
+  border: 1px solid #00d68f33;
 }
-.sr-chip.sr-support .sr-dist { background: #00d68f20; }
+.sr-line.sr-support .sr-pct { background: #00d68f25; }
 
 /* ============================================================
    점수 카드 (Analyst / Technical) — 원형 게이지
@@ -845,72 +869,108 @@ body {
 }
 
 /* ============================================================
-   WHY 카드 (5개 지표 요약)
+   WHY STRONG BUY? — 내러티브
    ============================================================ */
 .why-section { margin: 8px 0 4px; }
 
-.why-cards {
+.why-narrative {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
-.why-card {
+/* 애널리스트 헤드 (제일 위) */
+.why-analyst-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1a1a2e, #14141f);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.why-analyst-head.tone-good {
+  border-left-color: var(--green);
+  background: linear-gradient(135deg, #00d68f12, #14141f);
+}
+.why-analyst-head.tone-warn {
+  border-left-color: var(--yellow);
+  background: linear-gradient(135deg, #ffaa0012, #14141f);
+}
+.why-analyst-head.tone-bad {
+  border-left-color: var(--red);
+  background: linear-gradient(135deg, #ff3d7112, #14141f);
+}
+.why-analyst-head.tone-neutral {
+  border-left-color: var(--text-dim);
+}
+
+.why-analyst-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.why-analyst-text {
+  color: var(--text);
+  flex: 1;
+}
+
+.why-analyst-text b {
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.why-analyst-head.tone-good .why-analyst-text b { color: var(--green); }
+.why-analyst-head.tone-warn .why-analyst-text b { color: var(--yellow); }
+.why-analyst-head.tone-bad .why-analyst-text b { color: var(--red); }
+
+/* WHY 블록 (가격구조 / 보조지표 / 거래량) */
+.why-block {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--border);
   border-radius: 10px;
-  transition: all 0.15s;
+  padding: 14px 16px;
 }
 
-.why-card.tone-good { border-left-color: var(--green); }
-.why-card.tone-ok { border-left-color: #6c5ce7; }
-.why-card.tone-warn { border-left-color: var(--yellow); }
-.why-card.tone-bad { border-left-color: var(--red); }
-
-.why-card-icon {
-  font-size: 20px;
-  line-height: 1;
-  flex-shrink: 0;
-  width: 28px;
-  text-align: center;
-}
-
-.why-card-body { flex: 1; min-width: 0; }
-
-.why-card-label {
-  font-size: 11px;
-  font-weight: 700;
+.why-block-title {
+  font-size: 12px;
+  font-weight: 800;
   letter-spacing: 1px;
   color: var(--text-dim);
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 
-.why-card-desc {
+.why-block-body {
   font-size: 14px;
-  font-weight: 600;
+  line-height: 1.75;
   color: var(--text);
-  line-height: 1.3;
 }
 
-.why-card.tone-good .why-card-desc { color: var(--green); }
-.why-card.tone-warn .why-card-desc { color: var(--yellow); }
-.why-card.tone-bad .why-card-desc { color: var(--red); }
-
-.why-card-score {
-  font-size: 13px;
+.why-block-body b {
+  color: var(--green);
   font-weight: 700;
+}
+
+.why-block-body b.tone-good { color: var(--green); }
+.why-block-body b.tone-warn { color: var(--yellow); }
+.why-block-body b.tone-bad { color: var(--red); }
+.why-block-body b.tone-neutral { color: var(--text); }
+
+/* 하단 안내 */
+.why-disclaimer {
+  font-size: 11px;
   color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  background: var(--surface2);
-  padding: 4px 8px;
-  border-radius: 6px;
+  opacity: 0.7;
+  text-align: center;
+  padding: 8px 0;
+  line-height: 1.5;
 }
 
 /* ============================================================
@@ -995,165 +1055,83 @@ body {
 }
 
 /* ============================================================
-   정보 카드 (가격구조 / 거래량 공용)
+   보조지표 아코디언 (차트 아래)
    ============================================================ */
-.info-card-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.indicators-section { margin: 16px 0; }
 
-.info-card {
+.breakdown-item {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--border);
   border-radius: 10px;
-  padding: 14px;
-  transition: all 0.15s;
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s;
 }
 
-.info-card.tone-good { border-left-color: var(--green); }
-.info-card.tone-warn { border-left-color: var(--yellow); }
-.info-card.tone-bad { border-left-color: var(--red); }
-.info-card.tone-neutral { border-left-color: var(--border); }
-.info-card.tone-support { border-left-color: var(--green); }
-.info-card.tone-resistance { border-left-color: var(--red); }
+.breakdown-item[open] { border-color: var(--surface2); }
 
-.info-card-head {
+.breakdown-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.breakdown-summary::-webkit-details-marker { display: none; }
+.breakdown-summary:hover { background: var(--surface2); }
+
+.breakdown-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text);
+}
+
+.breakdown-name .kr {
+  font-weight: 400;
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+.breakdown-score {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.breakdown-body {
+  padding: 4px 14px 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.condition-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
-}
-
-.info-card-icon {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.info-card-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-  text-transform: uppercase;
-}
-
-.info-card-value {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.3;
-}
-
-.info-card.tone-good .info-card-value { color: var(--green); }
-.info-card.tone-warn .info-card-value { color: var(--yellow); }
-.info-card.tone-bad .info-card-value { color: var(--red); }
-
-.info-card-sub {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.5;
-  margin-top: 4px;
-}
-
-.info-card-sub b { color: var(--text); font-weight: 700; }
-
-.info-card-dist {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-dim);
-  margin-top: 6px;
-  font-variant-numeric: tabular-nums;
-}
-
-.info-card.tone-support .info-card-dist { color: var(--green); }
-.info-card.tone-resistance .info-card-dist { color: var(--red); }
-
-.ps-mini-detail {
-  font-size: 11px;
-  color: var(--text-dim);
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: var(--bg);
-  border-radius: 6px;
-  line-height: 1.6;
-  font-variant-numeric: tabular-nums;
-}
-
-.info-card-breakout {
-  padding: 12px 14px;
-}
-
-/* ============================================================
-   거래량 바 게이지
-   ============================================================ */
-.vol-bar-wrap {
-  margin: 12px 0 8px;
-}
-
-.vol-bar {
-  position: relative;
-  width: 100%;
-  height: 10px;
-  background: var(--surface2);
-  border-radius: 5px;
-  overflow: visible;
-}
-
-.vol-bar-fill {
-  height: 100%;
-  border-radius: 5px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  background: var(--text-dim);
-}
-
-.vol-bar-fill.tone-good { background: linear-gradient(90deg, #00d68f88, var(--green)); }
-.vol-bar-fill.tone-warn { background: linear-gradient(90deg, #ffaa0088, var(--yellow)); }
-.vol-bar-fill.tone-bad { background: linear-gradient(90deg, #ff3d7188, var(--red)); }
-.vol-bar-fill.tone-neutral { background: var(--text-dim); }
-
-.vol-bar-marker {
-  position: absolute;
-  top: -3px;
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-}
-
-.vol-bar-scale {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: var(--text-dim);
-  margin-top: 4px;
-  font-variant-numeric: tabular-nums;
-}
-
-.vol-bar-main {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.vol-bar-ratio {
-  font-size: 22px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.5px;
-  color: var(--text);
-}
-
-.info-card.tone-good .vol-bar-ratio { color: var(--green); }
-.info-card.tone-warn .vol-bar-ratio { color: var(--yellow); }
-.info-card.tone-bad .vol-bar-ratio { color: var(--red); }
-
-.vol-bar-status {
   font-size: 13px;
-  font-weight: 600;
   color: var(--text-dim);
+  padding: 4px 0;
 }
+
+.condition-check {
+  font-size: 14px;
+  font-weight: 700;
+  width: 14px;
+  display: inline-block;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.condition-check.pass { color: var(--green); }
+.condition-check.fail { color: var(--red); }
+
+.condition-value { color: var(--text); font-weight: 500; }
 
 /* ============================================================
    뉴스
@@ -1941,17 +1919,6 @@ body {
 
   .app-title { font-size: 24px; }
   .settings-summary-grid { grid-template-columns: repeat(4, 1fr); }
-
-  /* 데스크탑: 가격구조 카드 2열 */
-  .info-card-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-
-  .info-card-grid .info-card-breakout {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 400px) {
@@ -1960,11 +1927,12 @@ body {
   .summary-chip .num { font-size: 13px; }
   .stock-price { font-size: 12px; }
   .nav-btn span { font-size: 10px; }
-  .price-main { font-size: 28px; }
+  .price-hero .price-main { font-size: 28px; }
+  .sr-line { font-size: 10px; padding: 2px 5px; }
+  .sr-line .sr-price { font-size: 10px; }
+  .sr-line .sr-pct { font-size: 9px; }
   .score-ring-wrapper { width: 88px; height: 88px; }
   .score-ring-value { font-size: 22px; }
-  .why-card-icon { font-size: 18px; width: 24px; }
-  .why-card-desc { font-size: 13px; }
 }
 
 /* ===== iOS PWA 대응 ===== */
