@@ -186,20 +186,7 @@ const App = {
   const clearBtn = document.getElementById('clearSearchBtn');
   if (clearBtn) clearBtn.style.display = v ? 'block' : 'none';
   this.renderMain();
-
-  // 검색어가 있으면 결과 섹션으로 스크롤 (키보드에 가려지지 않게)
-  if (this.search) {
-    clearTimeout(this._searchScrollTimeout);
-    this._searchScrollTimeout = setTimeout(() => {
-      const anchor = document.querySelector('.strong-buy-section');
-      if (!anchor) return;
-
-      // 검색바 하단 기준으로 부드럽게 올림
-      const y = anchor.getBoundingClientRect().top + window.scrollY - 8;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-    }, 120);
-  }
-}
+  },
 
   clearSearch() {
     this.search = '';
