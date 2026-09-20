@@ -1,10 +1,10 @@
 // ============================================================
 // /api/scanner — 메인 스캔 엔드포인트
-// config는 URL query로 전달 (body 파싱 문제 회피)
+// 기술적 분석 확장: 가격·차트 구조 + 거래량 분석 추가
 // ============================================================
 
 const { getMarketData }     = require('../lib/providers/marketProvider');
-const { getTechnicalData }  = require('../lib/providers/technicalProvider');
+const { getTechnicalData, getFullTechnicalData } = require('../lib/providers/technicalProvider');
 const { getAnalystData }    = require('../lib/providers/analystProvider');
 const { getNews }           = require('../lib/providers/newsProvider');
 const { calcTechnicalScore, gradeFromScore } = require('../lib/engine/technicalScore');
@@ -24,25 +24,22 @@ module.exports = async (req, res) => {
   let force = false;
   let clientConfig = null;
 
-  // === URL query에서 config 읽기 (body 파싱 문제 회피) ===
+  // URL query에서 config 읽기
   try {
-    console.log('[scanner DEBUG] req.url:', req.url);
-    console.log('[scanner DEBUG] req.headers.host:', req.headers.host);
     const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
     force = url.searchParams.get('force') === '1';
     const cfgParam = url.searchParams.get('config');
     if (cfgParam) {
       clientConfig = JSON.parse(cfgParam);
-      console.log('[scanner DEBUG] clientConfig 파싱 성공');
     }
   } catch (e) {
     console.warn('[scanner] query parse error:', e.message);
   }
 
   try {
-    // 캐시 키에 config 해시 포함 (설정 다르면 다른 캐시)
-    const cfgHash = clientConfig 
-      ? `${clientConfig.strongBuyThreshold}_${JSON.stringify(clientConfig.hardGates)}` 
+    // 캐시 키
+    const cfgHash = clientConfig
+      ? `${clientConfig.strongBuyThreshold}_${JSON.stringify(clientConfig.hardGates)}`
       : 'default';
     const cacheKey = `scanner:${cfgHash}`;
 
@@ -86,6 +83,9 @@ module.exports = async (req, res) => {
   }
 };
 
+// ------------------------------------------------------------
+// 개별 종목 분석
+// ------------------------------------------------------------
 async function analyzeOne(stock, clientConfig) {
   const base = {
     symbol: stock.ticker,
@@ -96,15 +96,19 @@ async function analyzeOne(stock, clientConfig) {
     technical: 'N/A',
     technicalScore: null,
     breakdown: null,
+    priceStructure: null,   // 신규
+    volumeAnalysis: null,   // 신규
     news: []
   };
 
   try {
+    // 1) OHLCV
     const market = await safe(() => getMarketData(stock));
     if (market && market.price != null) {
       base.price = formatPrice(market.price, stock.country);
     }
 
+    // 2) 기술지표 (기존 보조지표)
     let tech = null;
     if (market) {
       tech = await safe(() => getTechnicalData(market));
@@ -128,6 +132,16 @@ async function analyzeOne(stock, clientConfig) {
       }
     }
 
+    // 2-1) 가격·차트 구조 + 거래량 (신규, 기존 로직 안 건드림)
+    if (market) {
+      const fullTech = await safe(() => getFullTechnicalData(market));
+      if (fullTech) {
+        base.priceStructure = fullTech.priceStructure || null;
+        base.volumeAnalysis = fullTech.volumeAnalysis || null;
+      }
+    }
+
+    // 3) Analyst
     const analyst = await safe(() => getAnalystData(stock));
     if (analyst && analyst.recommendation) {
       base.analyst = checkAnalystStrongBuy(analyst)
@@ -136,6 +150,7 @@ async function analyzeOne(stock, clientConfig) {
       base.analystDetail = analyst;
     }
 
+    // 4) 뉴스
     const news = await safe(() => getNews(stock));
     if (Array.isArray(news)) {
       base.news = news.slice(0, 5);
@@ -148,6 +163,9 @@ async function analyzeOne(stock, clientConfig) {
   }
 }
 
+// ------------------------------------------------------------
+// 유틸
+// ------------------------------------------------------------
 async function safe(fn) {
   try { return await fn(); } catch (e) {
     console.warn('[safe]', e.message);
