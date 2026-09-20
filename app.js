@@ -1,6 +1,6 @@
 // ============================================================
-// STRONG BUY SCANNER — Frontend (app.js) v8
-// config를 URL query로 전달 (Vercel body 파싱 문제 회피)
+// STRONG BUY SCANNER — Frontend (app.js) v10
+// Phase 4: 가격·차트 구조 + 거래량 분석 UI 추가
 // ============================================================
 
 const DEFAULT_CONFIG = {
@@ -33,16 +33,24 @@ const ANALYST_GRADE_RANK = {
   STRONG_BUY: 3, BUY: 2, HOLD: 1, SELL: 0, STRONG_SELL: 0, 'N/A': -1
 };
 
+// ============================================================
+// Storage
+// ============================================================
 const Storage = {
   FAV_KEY: 'strongBuyScanner.favorites',
   HISTORY_KEY: 'strongBuyScanner.history',
   HISTORY_MAX_DAYS: 30,
 
   getFavorites() {
-    try { return JSON.parse(localStorage.getItem(this.FAV_KEY) || '[]'); }
-    catch (e) { return []; }
+    try {
+      return JSON.parse(localStorage.getItem(this.FAV_KEY) || '[]');
+    } catch (e) { return []; }
   },
-  isFavorite(symbol) { return this.getFavorites().includes(symbol); },
+
+  isFavorite(symbol) {
+    return this.getFavorites().includes(symbol);
+  },
+
   toggleFavorite(symbol) {
     const favs = this.getFavorites();
     const idx = favs.indexOf(symbol);
@@ -51,43 +59,65 @@ const Storage = {
     localStorage.setItem(this.FAV_KEY, JSON.stringify(favs));
     return favs.includes(symbol);
   },
+
   getHistory() {
-    try { return JSON.parse(localStorage.getItem(this.HISTORY_KEY) || '{}'); }
-    catch (e) { return {}; }
+    try {
+      return JSON.parse(localStorage.getItem(this.HISTORY_KEY) || '{}');
+    } catch (e) { return {}; }
   },
+
   saveHistory(data) {
     const history = this.getHistory();
     const today = new Date().toISOString().slice(0, 10);
     if (!history[today]) history[today] = {};
+
     for (const d of data) {
       if (d.technical === 'STRONG_BUY') {
-        history[today][d.symbol] = { name: d.name, score: d.technicalScore, analyst: d.analyst };
+        history[today][d.symbol] = {
+          name: d.name,
+          score: d.technicalScore,
+          analyst: d.analyst
+        };
       }
     }
+
     const dates = Object.keys(history).sort();
     if (dates.length > this.HISTORY_MAX_DAYS) {
       const remove = dates.slice(0, dates.length - this.HISTORY_MAX_DAYS);
       remove.forEach(d => delete history[d]);
     }
+
     localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history));
   },
+
   getSBSince(symbol) {
     const history = this.getHistory();
     const dates = Object.keys(history).sort().reverse();
-    let consecutive = 0, since = null;
+    let consecutive = 0;
+    let since = null;
+
     for (const date of dates) {
-      if (history[date][symbol]) { consecutive++; since = date; }
-      else break;
+      if (history[date][symbol]) {
+        consecutive++;
+        since = date;
+      } else {
+        break;
+      }
     }
+
     if (consecutive === 0) return null;
     return { days: consecutive, startDate: since };
   },
+
   clearAll() {
     localStorage.removeItem(this.FAV_KEY);
     localStorage.removeItem(this.HISTORY_KEY);
   }
 };
 
+// ============================================================
+// App
+// ============================================================
 const App = {
   SETTINGS_PASSWORD: '1234',
   AUTH_KEY: 'strongBuyScanner.auth',
@@ -140,6 +170,7 @@ const App = {
       const ok = await this.requireSettingsAuth();
       if (!ok) return;
     }
+
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(`screen-${screen}`);
     if (target) target.classList.add('active');
@@ -172,7 +203,6 @@ const App = {
     document.getElementById('errorBanner').classList.add('hidden');
 
     try {
-      // config를 URL query로 전달 (Vercel body 파싱 문제 회피)
       let url = '/api/scanner';
       if (forceRefresh) {
         const cfgStr = encodeURIComponent(JSON.stringify(this.config));
@@ -208,6 +238,7 @@ const App = {
   },
 
   recomputeAnalyst(d) {
+    // analyst 값을 대문자로 정규화 (강등 안 함)
     if (d.analyst) {
       d.analyst = String(d.analyst).toUpperCase().replace(/\s+/g, '_');
     }
@@ -241,18 +272,21 @@ const App = {
 
   getFiltered() {
     let result = this.data;
+
     if (this.filter === 'US' || this.filter === 'KR') {
       result = result.filter(d => d.flag === this.filter);
     } else if (this.filter === 'fav') {
       const favs = Storage.getFavorites();
       result = result.filter(d => favs.includes(d.symbol));
     }
+
     if (this.search) {
       result = result.filter(d =>
         d.name.toLowerCase().includes(this.search) ||
         d.symbol.toLowerCase().includes(this.search)
       );
     }
+
     return result;
   },
 
@@ -295,6 +329,7 @@ const App = {
       sectionLabel.textContent = label;
     }
 
+    // Strong Buy 렌더
     if (strongBuys.length === 0) {
       let msg = '조건을 만족하는 Strong Buy 종목이 없습니다.';
       if (this.filter === 'fav' && Storage.getFavorites().length === 0) {
@@ -308,6 +343,7 @@ const App = {
       list.innerHTML = strongBuys.map(d => this.renderStockItem(d, favs)).join('');
     }
 
+    // Don't Buy 렌더
     if (!dontBuyList || !dontBuySection) return;
 
     if (dontBuys.length === 0) {
@@ -316,6 +352,7 @@ const App = {
       dontBuySection.style.display = '';
       const countEl = document.getElementById('dontBuyCount');
       if (countEl) countEl.textContent = `${dontBuys.length}개`;
+
       const favs = Storage.getFavorites();
       dontBuyList.innerHTML = dontBuys.map(d => this.renderStockItem(d, favs, true)).join('');
     }
@@ -410,13 +447,18 @@ const App = {
     }, 1500);
   },
 
+  // ============================================================
+  // 커스텀 모달
+  // ============================================================
   _showModal({ type = 'info', title, message, confirmText = '확인', cancelText, onConfirm, onCancel }) {
     return new Promise(resolve => {
       const existing = document.querySelector('.modal-overlay');
       if (existing) existing.remove();
+
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
       const hasCancel = !!cancelText;
+
       overlay.innerHTML = `
         <div class="modal-box">
           <div class="modal-title">${this.escapeHtml(title || '')}</div>
@@ -426,28 +468,34 @@ const App = {
             <button class="modal-btn ${type === 'danger' ? 'danger' : 'primary'}" data-action="confirm">${this.escapeHtml(confirmText)}</button>
           </div>
         </div>`;
+
       document.body.appendChild(overlay);
+
       const close = (result) => {
         overlay.classList.add('closing');
         setTimeout(() => overlay.remove(), 150);
         resolve(result);
       };
+
       overlay.querySelector('[data-action="confirm"]').onclick = () => {
         if (onConfirm) onConfirm();
         close(true);
       };
+
       if (hasCancel) {
         overlay.querySelector('[data-action="cancel"]').onclick = () => {
           if (onCancel) onCancel();
           close(false);
         };
       }
+
       overlay.onclick = (e) => {
         if (e.target === overlay) {
           if (onCancel) onCancel();
           close(false);
         }
       };
+
       const onEsc = (e) => {
         if (e.key === 'Escape') {
           document.removeEventListener('keydown', onEsc);
@@ -467,6 +515,9 @@ const App = {
     return this._showModal({ type, title, message, confirmText, cancelText });
   },
 
+  // ============================================================
+  // 설정 잠금
+  // ============================================================
   isSettingsUnlocked() {
     try {
       const raw = localStorage.getItem(this.AUTH_KEY);
@@ -481,12 +532,15 @@ const App = {
     localStorage.setItem(this.AUTH_KEY, JSON.stringify(data));
   },
 
-  lockSettings() { localStorage.removeItem(this.AUTH_KEY); },
+  lockSettings() {
+    localStorage.removeItem(this.AUTH_KEY);
+  },
 
   async requireSettingsAuth() {
     if (this.isSettingsUnlocked()) return true;
     const password = await this._showPasswordModal();
     if (password === null) return false;
+
     if (password === this.SETTINGS_PASSWORD) {
       this.unlockSettings();
       this.showToast('🔓 설정 잠금 해제');
@@ -501,37 +555,52 @@ const App = {
     return new Promise(resolve => {
       const existing = document.querySelector('.modal-overlay');
       if (existing) existing.remove();
+
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
+
       overlay.innerHTML = `
         <div class="modal-box">
           <div class="modal-title">🔒 설정 잠금</div>
           <div class="modal-message">설정에 접근하려면 비밀번호를 입력하세요.</div>
-          <input type="password" id="settingsPasswordInput" class="modal-input" placeholder="비밀번호" autocomplete="off">
+          <input type="password" id="settingsPasswordInput" class="modal-input"
+                 placeholder="비밀번호" autocomplete="off">
           <div class="modal-actions">
             <button class="modal-btn secondary" data-action="cancel">취소</button>
             <button class="modal-btn primary" data-action="confirm">확인</button>
           </div>
         </div>`;
+
       document.body.appendChild(overlay);
+
       const input = overlay.querySelector('#settingsPasswordInput');
       setTimeout(() => input.focus(), 100);
+
       const close = (result) => {
         overlay.classList.add('closing');
         setTimeout(() => overlay.remove(), 150);
         resolve(result);
       };
+
       const submit = () => close(input.value);
+
       overlay.querySelector('[data-action="confirm"]').onclick = submit;
       overlay.querySelector('[data-action="cancel"]').onclick = () => close(null);
+
       input.onkeydown = (e) => {
         if (e.key === 'Enter') submit();
         if (e.key === 'Escape') close(null);
       };
-      overlay.onclick = (e) => { if (e.target === overlay) close(null); };
+
+      overlay.onclick = (e) => {
+        if (e.target === overlay) close(null);
+      };
     });
   },
 
+  // ============================================================
+  // 상세 화면
+  // ============================================================
   showDetail(symbol) {
     const d = this.data.find(x => x.symbol === symbol);
     if (!d) return;
@@ -577,6 +646,8 @@ const App = {
 
     this.renderWhySummary(d);
     this.renderBreakdown(d.breakdown);
+    this.renderPriceStructure(d.priceStructure);
+    this.renderVolumeAnalysis(d.volumeAnalysis);
     this.renderNews(d.news);
 
     this.navigate('detail');
@@ -588,6 +659,7 @@ const App = {
   renderAnalystDetail(d) {
     const a = d.analystDetail;
     if (!a) return '';
+
     let weighted = 0;
     if (a.strongBuy != null) {
       const sb = a.strongBuy || 0, b = a.buy || 0, h = a.hold || 0;
@@ -647,28 +719,42 @@ const App = {
     }
   },
 
+  // ============================================================
+  // WHY 요약
+  // ============================================================
   renderWhySummary(d) {
     const el = document.getElementById('whySummary');
     if (!el) return;
     if (!d.breakdown) { el.innerHTML = ''; return; }
+
     const b = d.breakdown;
     const lines = [];
+
     const grade = d.technical === 'STRONG_BUY' ? '🟢 기술적 분석상 매수 신호가 강해요' : '🟡 기술적 신호는 보통이에요';
     lines.push(`<p>${grade}.</p>`);
 
     if (b.ma && b.ma.conditions) {
       const passCount = b.ma.conditions.filter(c => c.pass).length;
-      if (passCount === 3) lines.push(`<p>📈 <span class="highlight">이동평균선 3개 모두 위에 있어요.</span> 단기·중기·장기 추세가 모두 상승이라는 뜻이에요.</p>`);
-      else if (passCount === 2) lines.push(`<p>📈 이동평균선 3개 중 2개 위에 있어요. 상승 추세지만 아직 완전히 자리 잡진 않았어요.</p>`);
-      else if (passCount === 1) lines.push(`<p>📉 이동평균선 3개 중 1개만 위에 있어요. 추세가 약한 편이에요.</p>`);
-      else lines.push(`<p>📉 <span class="bad">이동평균선 아래에 있어요.</span> 하락 추세이니 주의가 필요해요.</p>`);
+      if (passCount === 3) {
+        lines.push(`<p>📈 <span class="highlight">이동평균선 3개 모두 위에 있어요.</span> 단기·중기·장기 추세가 모두 상승이라는 뜻이에요.</p>`);
+      } else if (passCount === 2) {
+        lines.push(`<p>📈 이동평균선 3개 중 2개 위에 있어요. 상승 추세지만 아직 완전히 자리 잡진 않았어요.</p>`);
+      } else if (passCount === 1) {
+        lines.push(`<p>📉 이동평균선 3개 중 1개만 위에 있어요. 추세가 약한 편이에요.</p>`);
+      } else {
+        lines.push(`<p>📉 <span class="bad">이동평균선 아래에 있어요.</span> 하락 추세이니 주의가 필요해요.</p>`);
+      }
     }
 
     if (b.macd && b.macd.conditions) {
       const macdPass = b.macd.conditions.filter(c => c.pass).length;
-      if (macdPass === 3) lines.push(`<p>⚡ <span class="highlight">MACD가 강한 상승 신호를 보내고 있어요.</span> 단기 모멘텀이 살아있다는 뜻이에요.</p>`);
-      else if (macdPass >= 1) lines.push(`<p>⚡ MACD 신호는 일부 긍정적이에요.</p>`);
-      else lines.push(`<p>⚠️ MACD가 약세 신호를 보이고 있어요.</p>`);
+      if (macdPass === 3) {
+        lines.push(`<p>⚡ <span class="highlight">MACD가 강한 상승 신호를 보내고 있어요.</span> 단기 모멘텀이 살아있다는 뜻이에요.</p>`);
+      } else if (macdPass >= 1) {
+        lines.push(`<p>⚡ MACD 신호는 일부 긍정적이에요.</p>`);
+      } else {
+        lines.push(`<p>⚠️ MACD가 약세 신호를 보이고 있어요.</p>`);
+      }
     }
 
     if (b.rsi && b.rsi.value != null) {
@@ -703,9 +789,13 @@ const App = {
     }
 
     lines.push(`<p style="opacity:0.7;font-size:12px;margin-top:12px">※ 이 분석은 참고용이며 투자 결정의 책임은 본인에게 있습니다.</p>`);
+
     el.innerHTML = lines.join('');
   },
 
+  // ============================================================
+  // 기술지표 breakdown
+  // ============================================================
   renderBreakdown(b) {
     const el = document.getElementById('detailBreakdown');
     if (!el) return;
@@ -738,6 +828,204 @@ const App = {
     el.innerHTML = items.length ? items.join('') : '<div class="empty-state">기술적 분석 데이터 없음</div>';
   },
 
+  // ============================================================
+  // 가격·차트 구조 렌더 (신규)
+  // ============================================================
+  renderPriceStructure(ps) {
+    const el = document.getElementById('priceStructureContent');
+    if (!el) return;
+
+    if (!ps || ps.status !== 'ok') {
+      el.innerHTML = `<div class="empty-state">${ps?.message || '가격·차트 구조 데이터 없음'}</div>`;
+      return;
+    }
+
+    const items = [];
+
+    // 1) 추세
+    if (ps.trend) {
+      const trendClass = {
+        up: 'trend-up',
+        down: 'trend-down',
+        sideways: 'trend-sideways',
+        unknown: ''
+      }[ps.trend.direction] || '';
+
+      const trendIcon = {
+        up: '📈',
+        down: '📉',
+        sideways: '➡️'
+      }[ps.trend.direction] || '';
+
+      let detailHtml = '';
+      if (ps.trend.detail) {
+        const dd = ps.trend.detail;
+        detailHtml = `
+          <div class="ps-detail">
+            이전 고점 ${this.escapeHtml(String(dd.prevHigh))} → 최근 고점 ${this.escapeHtml(String(dd.currHigh))}<br>
+            이전 저점 ${this.escapeHtml(String(dd.prevLow))} → 최근 저점 ${this.escapeHtml(String(dd.currLow))}
+          </div>`;
+      }
+
+      items.push(`
+        <div class="ps-block">
+          <div class="ps-label">추세</div>
+          <div class="ps-value ${trendClass}">
+            ${trendIcon} ${this.escapeHtml(ps.trend.label)}
+          </div>
+          ${ps.trend.message ? `<div class="ps-sub">${this.escapeHtml(ps.trend.message)}</div>` : ''}
+          ${detailHtml}
+        </div>
+      `);
+    }
+
+    // 2) 주요 지지선
+    if (ps.nearestSupport) {
+      const s = ps.nearestSupport;
+      const proximityClass = {
+        very_near: 'near-very',
+        near: 'near',
+        close: 'near-close',
+        far: ''
+      }[s.proximity] || '';
+
+      items.push(`
+        <div class="ps-block">
+          <div class="ps-label">주요 지지선</div>
+          <div class="ps-value">${this.escapeHtml(String(s.price))}</div>
+          <div class="ps-sub">
+            테스트 <span class="ps-strong">${s.testCount}회</span> ·
+            <span class="ps-strength-${s.strength}">${this.escapeHtml(s.strengthLabel)}</span>
+          </div>
+          <div class="ps-distance ${proximityClass}">
+            현재가와 거리: ${s.distancePct.toFixed(2)}% (${this.escapeHtml(s.proximityLabel)})
+          </div>
+        </div>
+      `);
+    }
+
+    // 3) 주요 저항선
+    if (ps.nearestResistance) {
+      const r = ps.nearestResistance;
+      const proximityClass = {
+        very_near: 'near-very',
+        near: 'near',
+        close: 'near-close',
+        far: ''
+      }[r.proximity] || '';
+
+      items.push(`
+        <div class="ps-block">
+          <div class="ps-label">주요 저항선</div>
+          <div class="ps-value">${this.escapeHtml(String(r.price))}</div>
+          <div class="ps-sub">
+            테스트 <span class="ps-strong">${r.testCount}회</span> ·
+            <span class="ps-strength-${r.strength}">${this.escapeHtml(r.strengthLabel)}</span>
+          </div>
+          <div class="ps-distance ${proximityClass}">
+            현재가와 거리: ${r.distancePct.toFixed(2)}% (${this.escapeHtml(r.proximityLabel)})
+          </div>
+        </div>
+      `);
+    }
+
+    // 4) 최근 캔들 패턴
+    if (ps.candlePattern && ps.candlePattern.pattern !== 'none') {
+      items.push(`
+        <div class="ps-block">
+          <div class="ps-label">최근 캔들</div>
+          <div class="ps-value">${this.escapeHtml(ps.candlePattern.label)}</div>
+          ${ps.candlePattern.meaning ? `<div class="ps-sub">${this.escapeHtml(ps.candlePattern.meaning)}</div>` : ''}
+          ${ps.candlePattern.note ? `<div class="ps-note">💡 ${this.escapeHtml(ps.candlePattern.note)}</div>` : ''}
+        </div>
+      `);
+    }
+
+    // 5) 돌파/이탈
+    if (ps.breakout && ps.breakout.type !== 'none') {
+      const breakoutClass = ps.breakout.type === 'resistance_breakout' ? 'breakout-up' : 'breakout-down';
+      items.push(`
+        <div class="ps-block ps-breakout ${breakoutClass}">
+          <div class="ps-value">${this.escapeHtml(ps.breakout.label)}</div>
+          <div class="ps-sub">종가 ${this.escapeHtml(String(ps.breakout.closePrice))}</div>
+        </div>
+      `);
+    }
+
+    el.innerHTML = items.length
+      ? items.join('')
+      : '<div class="empty-state">가격 구조 분석 데이터 부족</div>';
+  },
+
+  // ============================================================
+  // 거래량 분석 렌더 (신규)
+  // ============================================================
+  renderVolumeAnalysis(vol) {
+    const el = document.getElementById('volumeAnalysisContent');
+    if (!el) return;
+
+    if (!vol || vol.status !== 'ok') {
+      el.innerHTML = `<div class="empty-state">${vol?.message || '거래량 분석 데이터 없음'}</div>`;
+      return;
+    }
+
+    const ratioClass = {
+      low: 'vol-low',
+      normal: 'vol-normal',
+      high: 'vol-high',
+      surge: 'vol-surge'
+    }[vol.volumeStatus] || '';
+
+    const relationClass = {
+      up_with_volume: 'rel-up-vol',
+      up_without_volume: 'rel-up-novol',
+      down_with_volume: 'rel-down-vol',
+      down_without_volume: 'rel-down-novol',
+      neutral: 'rel-neutral'
+    }[vol.priceVolumeRelation?.type] || '';
+
+    el.innerHTML = `
+      <div class="vol-block">
+        <div class="vol-row">
+          <span class="vol-label">현재 거래량</span>
+          <span class="vol-value">${this.formatNumber(vol.currentVolume)}</span>
+        </div>
+        <div class="vol-row">
+          <span class="vol-label">20일 평균</span>
+          <span class="vol-value">${this.formatNumber(vol.volumeSMA20)}</span>
+        </div>
+        <div class="vol-row vol-main">
+          <span class="vol-label">평균 대비</span>
+          <span class="vol-value ${ratioClass}">
+            ${vol.volumeChangePct >= 0 ? '+' : ''}${vol.volumeChangePct.toFixed(1)}%
+          </span>
+        </div>
+        <div class="vol-status ${ratioClass}">
+          ${this.escapeHtml(vol.volumeStatusLabel)}
+          ${vol.multiplier ? ` (${this.escapeHtml(vol.multiplier)})` : ''}
+        </div>
+      </div>
+
+      <div class="vol-block">
+        <div class="vol-label">가격-거래량 관계</div>
+        <div class="vol-relation ${relationClass}">
+          ${this.escapeHtml(vol.priceVolumeRelation?.label || '—')}
+        </div>
+        ${vol.priceVolumeRelation?.meaning ? `
+          <div class="vol-relation-meaning">${this.escapeHtml(vol.priceVolumeRelation.meaning)}</div>
+        ` : ''}
+      </div>
+    `;
+  },
+
+  formatNumber(n) {
+    if (n == null) return '—';
+    return Math.round(n).toLocaleString('ko-KR');
+  },
+
+  // ============================================================
+  // 뉴스
+  // ============================================================
   renderNews(news) {
     const el = document.getElementById('newsList');
     if (!el) return;
@@ -753,15 +1041,24 @@ const App = {
       </div>`).join('');
   },
 
+  // ============================================================
+  // 차트
+  // ============================================================
   async loadChart(days) {
     if (!this.currentDetail) return;
     this.currentChartDays = days;
+
     document.querySelectorAll('.chart-controls button').forEach(b => {
       b.classList.toggle('active', parseInt(b.dataset.days, 10) === days);
     });
+
     const container = document.getElementById('priceChart');
     if (!container) return;
-    container.innerHTML = `<div class="chart-loading"><div class="spinner"></div><div style="margin-top:12px;font-size:13px;color:var(--text-dim)">차트 로딩 중...</div></div>`;
+    container.innerHTML = `
+      <div class="chart-loading">
+        <div class="spinner"></div>
+        <div style="margin-top:12px;font-size:13px;color:var(--text-dim)">차트 로딩 중...</div>
+      </div>`;
 
     try {
       const res = await fetch(`/api/chart?symbol=${encodeURIComponent(this.currentDetail.symbol)}&days=${days}`);
@@ -788,22 +1085,30 @@ const App = {
     if (!container) return;
     this.destroyChart();
     container.innerHTML = '';
+
     if (typeof LightweightCharts === 'undefined') {
       container.innerHTML = '<div class="empty-state">차트 라이브러리를 불러오지 못했습니다.</div>';
       return;
     }
+
     const chart = LightweightCharts.createChart(container, {
-      width: container.clientWidth, height: 320,
+      width: container.clientWidth,
+      height: 320,
       layout: { background: { color: '#14141f' }, textColor: '#e8e8f0', fontSize: 11 },
       grid: { vertLines: { color: '#2a2a40' }, horzLines: { color: '#2a2a40' } },
       timeScale: { borderColor: '#2a2a40', timeVisible: false },
       rightPriceScale: { borderColor: '#2a2a40', scaleMargins: { top: 0.1, bottom: 0.3 } },
-      crosshair: { mode: LightweightCharts.CrosshairMode.Normal, vertLine: { color: '#6c5ce7', width: 1, style: 2 }, horzLine: { color: '#6c5ce7', width: 1, style: 2 } }
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: '#6c5ce7', width: 1, style: 2 },
+        horzLine: { color: '#6c5ce7', width: 1, style: 2 }
+      }
     });
     this.chart = chart;
 
     const candleSeries = chart.addCandlestickSeries({
-      upColor: '#00d68f', downColor: '#ff3d71', borderUpColor: '#00d68f', borderDownColor: '#ff3d71',
+      upColor: '#00d68f', downColor: '#ff3d71',
+      borderUpColor: '#00d68f', borderDownColor: '#ff3d71',
       wickUpColor: '#00d68f', wickDownColor: '#ff3d71'
     });
     candleSeries.setData(data.candles.map(c => ({
@@ -813,31 +1118,42 @@ const App = {
 
     if (data.ma20 && data.ma20.length) {
       const s = chart.addLineSeries({ color: '#ffaa00', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-      s.setData(data.ma20); this.chartSeries.ma20 = s;
+      s.setData(data.ma20);
+      this.chartSeries.ma20 = s;
     }
     if (data.ma50 && data.ma50.length) {
       const s = chart.addLineSeries({ color: '#6c5ce7', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-      s.setData(data.ma50); this.chartSeries.ma50 = s;
+      s.setData(data.ma50);
+      this.chartSeries.ma50 = s;
     }
     if (data.ma200 && data.ma200.length) {
       const s = chart.addLineSeries({ color: '#ff3d71', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-      s.setData(data.ma200); this.chartSeries.ma200 = s;
+      s.setData(data.ma200);
+      this.chartSeries.ma200 = s;
     }
+
     if (data.bbUpper && data.bbUpper.length) {
       const sU = chart.addLineSeries({ color: '#00d68f44', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
       sU.setData(data.bbUpper);
       const sL = chart.addLineSeries({ color: '#00d68f44', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
       sL.setData(data.bbLower);
-      this.chartSeries.bbUpper = sU; this.chartSeries.bbLower = sL;
+      this.chartSeries.bbUpper = sU;
+      this.chartSeries.bbLower = sL;
     }
+
     const volumeSeries = chart.addHistogramSeries({
-      color: '#2a2a40', priceFormat: { type: 'volume' }, priceScaleId: 'volume'
+      color: '#2a2a40',
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume'
     });
     volumeSeries.setData(data.candles.map(c => ({
-      time: c.date, value: c.volume, color: c.close >= c.open ? '#00d68f33' : '#ff3d7133'
+      time: c.date,
+      value: c.volume,
+      color: c.close >= c.open ? '#00d68f33' : '#ff3d7133'
     })));
     chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
     this.chartSeries.volume = volumeSeries;
+
     chart.timeScale().fitContent();
     this.applyChartToggles();
   },
@@ -872,12 +1188,16 @@ const App = {
     div.textContent = String(str);
     return div.innerHTML;
   },
+
   escapeAttr(str) {
     if (str == null) return '';
     return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 };
 
+// ============================================================
+// Settings
+// ============================================================
 const Settings = {
   STORAGE_KEY: 'strongBuyScanner.config',
 
@@ -902,7 +1222,6 @@ const Settings = {
     App.renderMain();
     this.renderSummary();
 
-    // 저장 후 자동 재스캔
     App.alert('설정이 저장되었습니다.\n잠시 후 자동 새로고침됩니다.', '✅ 저장 완료');
     setTimeout(() => App.loadData(true), 800);
   },
@@ -954,26 +1273,32 @@ const Settings = {
     document.getElementById('cfg-weight-rsi').value = c.weights.rsi;
     document.getElementById('cfg-weight-adx').value = c.weights.adx;
     document.getElementById('cfg-weight-bb').value = c.weights.bb;
+
     const sbT = document.getElementById('cfg-strongbuy-threshold');
     sbT.value = c.strongBuyThreshold;
     document.getElementById('cfg-strongbuy-threshold-val').textContent = c.strongBuyThreshold;
+
     document.getElementById('cfg-analyst-min-grade').value = c.analystMinGrade || 'BUY';
     document.getElementById('cfg-allow-analyst-na').checked = !!c.allowAnalystNA;
+
     document.getElementById('gate-ma50').checked = c.hardGates.ma50;
     document.getElementById('gate-ma200').checked = c.hardGates.ma200;
     document.getElementById('gate-macd').checked = c.hardGates.macd;
     document.getElementById('gate-adx').checked = c.hardGates.adx;
     document.getElementById('gate-di').checked = c.hardGates.di;
     document.getElementById('gate-adx-value').value = c.hardGates.adxMin;
+
     document.getElementById('cfg-ma20').value = c.maPoints.ma20;
     document.getElementById('cfg-ma50').value = c.maPoints.ma50;
     document.getElementById('cfg-ma200').value = c.maPoints.ma200;
     document.getElementById('cfg-macd-signal').value = c.macdPoints.signal;
     document.getElementById('cfg-macd-zero').value = c.macdPoints.zero;
     document.getElementById('cfg-macd-hist').value = c.macdPoints.hist;
+
     this.renderBands('rsiBands', c.rsiBands, 'rsi');
     this.renderBands('adxBands', c.adxBands, 'adx');
     this.renderBands('bbBands', c.bbBands, 'bb');
+
     this.updateTotalDisplay();
     this.renderSummary();
     this.renderDataStats();
@@ -1036,6 +1361,7 @@ const Settings = {
     const num = id => { const v = parseInt(document.getElementById(id)?.value); return isNaN(v) ? 0 : v; };
     const bool = id => document.getElementById(id)?.checked ?? false;
     const select = id => document.getElementById(id)?.value ?? '';
+
     const readBands = (containerId, originalBands) => {
       const rows = document.querySelectorAll(`#${containerId} .band-row`);
       const sorted = [...originalBands].sort((a, b) => b.min - a.min);
@@ -1046,6 +1372,7 @@ const Settings = {
       });
       return result.sort((a, b) => a.min - b.min);
     };
+
     const currentCfg = this.load();
     return {
       weights: { ma: num('cfg-weight-ma'), macd: num('cfg-weight-macd'), rsi: num('cfg-weight-rsi'), adx: num('cfg-weight-adx'), bb: num('cfg-weight-bb') },
