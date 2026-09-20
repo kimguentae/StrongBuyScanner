@@ -4,7 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>STRONG BUY SCANNER</title>
-  <link rel="apple-touch-icon" href="/icons/strongbuyscanner-icon.png">
+
+  <!-- PWA / 아이폰 홈화면 -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SB Scanner">
+  <meta name="theme-color" content="#0a0a0f">
+
   <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
@@ -112,6 +121,7 @@
 
       <div class="detail-divider"></div>
 
+      <!-- 캔들 차트 -->
       <div class="chart-section">
         <div class="section-label">📈 PRICE CHART</div>
         <div class="chart-controls">
@@ -134,7 +144,22 @@
 
       <div class="detail-divider"></div>
 
+      <!-- 기술지표 breakdown (기존) -->
       <div id="detailBreakdown"></div>
+
+      <!-- 신규: 가격·차트 구조 -->
+      <div class="detail-divider"></div>
+      <div class="price-structure-section">
+        <div class="section-label">📉 가격·차트 구조</div>
+        <div id="priceStructureContent"></div>
+      </div>
+
+      <!-- 신규: 거래량 -->
+      <div class="detail-divider"></div>
+      <div class="volume-section">
+        <div class="section-label">📊 거래량</div>
+        <div id="volumeAnalysisContent"></div>
+      </div>
 
       <div class="detail-divider"></div>
 
@@ -186,8 +211,6 @@
             <span class="group-toggle"></span>
           </summary>
           <div class="group-body">
-        
-
             <div class="field">
               <label>메인 화면 Analyst 최소 등급</label>
               <select id="cfg-analyst-min-grade" class="cfg-select">

@@ -1749,3 +1749,245 @@ select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ============================================================
+   가격·차트 구조 + 거래량 (Phase 4)
+   ============================================================ */
+
+/* ===== 가격 구조 ===== */
+.price-structure-section,
+.volume-section {
+  margin: 16px 0;
+}
+
+.ps-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 8px;
+}
+
+.ps-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.ps-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.ps-value.trend-up {
+  color: var(--green);
+}
+
+.ps-value.trend-down {
+  color: var(--red);
+}
+
+.ps-value.trend-sideways {
+  color: var(--yellow);
+}
+
+.ps-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
+.ps-detail {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.ps-strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.ps-strength-major {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.ps-strength-medium {
+  color: var(--yellow);
+  font-weight: 600;
+}
+
+.ps-strength-weak {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.ps-distance {
+  font-size: 12px;
+  margin-top: 6px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.ps-distance.near-very {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.ps-distance.near {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.ps-distance.near-close {
+  color: var(--yellow);
+  font-weight: 600;
+}
+
+.ps-note {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-left: 2px solid var(--accent);
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+.ps-breakout {
+  border-left: 3px solid;
+}
+
+.ps-breakout.breakout-up {
+  border-left-color: var(--green);
+  background: var(--green-dim);
+}
+
+.ps-breakout.breakout-down {
+  border-left-color: var(--red);
+  background: var(--red-dim);
+}
+
+/* ===== 거래량 ===== */
+.vol-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 8px;
+}
+
+.vol-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.vol-row.vol-main {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.vol-label {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.vol-value {
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.vol-value.vol-low {
+  color: var(--red);
+}
+
+.vol-value.vol-normal {
+  color: var(--text);
+}
+
+.vol-value.vol-high {
+  color: var(--yellow);
+}
+
+.vol-value.vol-surge {
+  color: var(--green);
+  text-shadow: 0 0 8px #00d68f44;
+}
+
+.vol-status {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.vol-status.vol-low {
+  color: var(--red);
+}
+
+.vol-status.vol-normal {
+  color: var(--text-dim);
+}
+
+.vol-status.vol-high {
+  color: var(--yellow);
+}
+
+.vol-status.vol-surge {
+  color: var(--green);
+  background: var(--green-dim);
+}
+
+.vol-relation {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 0;
+}
+
+.vol-relation.rel-up-vol {
+  color: var(--green);
+}
+
+.vol-relation.rel-up-novol {
+  color: var(--yellow);
+}
+
+.vol-relation.rel-down-vol {
+  color: var(--red);
+}
+
+.vol-relation.rel-down-novol {
+  color: var(--text-dim);
+}
+
+.vol-relation.rel-neutral {
+  color: var(--text-dim);
+}
+
+.vol-relation-meaning {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-top: 4px;
+}
